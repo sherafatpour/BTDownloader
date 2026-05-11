@@ -3,7 +3,6 @@ package com.khush.sample
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,8 +18,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
+import com.ketch.DownloadConstraints
 import com.ketch.DownloadModel
+import com.ketch.DownloadPriority
+import com.ketch.KetchNetworkType
 import com.ketch.Ketch
+import com.ketch.KetchBackoffPolicy
+import com.ketch.RetryPolicy
 import com.ketch.Status
 import com.khush.sample.databinding.FragmentMainBinding
 import com.khush.sample.databinding.ItemFileBinding
@@ -33,6 +37,24 @@ class MainFragment : Fragment() {
     private lateinit var fragmentMainBinding: FragmentMainBinding
     private lateinit var adapter: FilesAdapter
     private lateinit var ketch: Ketch
+    private val downloadDir: File by lazy {
+        File(requireContext().getExternalFilesDir(null), "ketch-downloads").apply {
+            mkdirs()
+        }
+    }
+
+    private val defaultConstraints = DownloadConstraints(
+        networkType = KetchNetworkType.CONNECTED,
+        requiresCharging = false,
+        requiresBatteryNotLow = false,
+        requiresStorageNotLow = false
+    )
+
+    private val defaultRetryPolicy = RetryPolicy(
+        maxRetries = 2,
+        backoffDelayInMs = 5_000L,
+        backoffPolicy = KetchBackoffPolicy.EXPONENTIAL
+    )
 
     companion object {
         fun newInstance(): MainFragment {
@@ -50,7 +72,6 @@ class MainFragment : Fragment() {
     ): View {
         super.onCreateView(inflater, container, savedInstanceState)
         ketch = (requireContext().applicationContext as MainApplication).ketch
-        observer()
         fragmentMainBinding = FragmentMainBinding.inflate(inflater)
         return fragmentMainBinding.root
     }
@@ -95,14 +116,15 @@ class MainFragment : Fragment() {
             }
 
             override fun onDownloadClick(downloadItem: DownloadModel) {
-                ketch.download(
-                    url = downloadItem.url,
-                    fileName = downloadItem.fileName,
-                    path = downloadItem.path,
-                    tag = downloadItem.tag,
-                    metaData = downloadItem.metaData,
-                    notificationTitle = downloadItem.notificationTitle,
-                    notificationParameter = downloadItem.notificationParameter
+                enqueueDownload(
+                    SampleDownloadRequest(
+                        title = downloadItem.notificationTitle.ifEmpty { downloadItem.fileName },
+                        url = downloadItem.url,
+                        fileName = downloadItem.fileName,
+                        tag = downloadItem.tag,
+                        metaData = downloadItem.metaData,
+                        notificationParameter = downloadItem.notificationParameter
+                    )
                 )
             }
 
@@ -137,71 +159,77 @@ class MainFragment : Fragment() {
 
         fragmentMainBinding.bt1.text = "Video 1"
         fragmentMainBinding.bt1.setOnClickListener {
-            ketch.download(
-                url = "https://file-examples.com/storage/fe9566cb7d67345489a5a97/2017/04/file_example_MP4_640_3MG.mp4",
-                path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path,
-                fileName = "Sample_Video_1.mp4",
-                tag = "Video",
-                metaData = "158",
-                notificationTitle = "Sample Video 1",
-                notificationParameter="REZA2"
-
+            enqueueDownload(
+                SampleDownloadRequest(
+                    title = "Sample Video 1",
+                    url = "https://bluetile-static.s3.ir-thr-at1.arvanstorage.ir/movies/b3811917-d1ea-4bfb-bd78-acd1f4d148c4.mp4",
+                    fileName = "sample_video_1.mp4",
+                    tag = "Video",
+                    metaData = "158",
+                    notificationParameter = "REZA2",
+                    priority = DownloadPriority.HIGH
+                )
             )
         }
 
         fragmentMainBinding.bt2.text = "Video 2"
         fragmentMainBinding.bt2.setOnClickListener {
-            ketch.download(
-                url = "https://file-examples.com/storage/fec85039006734629a992d7/2017/04/file_example_MP4_1280_10MG.mp4",
-                path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path,
-                fileName = "Sample_Video_2.mp4",
-                tag = "Video",
-                metaData = "169",
-                notificationTitle = "Sample Pdf 1",
-                notificationParameter="REZA1"
+            enqueueDownload(
+                SampleDownloadRequest(
+                    title = "Sample Video 2",
+                    url = "https://raw.githubusercontent.com/mdn/learning-area/main/html/multimedia-and-embedding/video-and-audio-content/rabbit320.mp4",
+                    fileName = "sample_video_2.mp4",
+                    tag = "Video",
+                    metaData = "169",
+                    notificationParameter = "REZA1"
+                )
             )
         }
 
         fragmentMainBinding.bt3.text = "Video 3"
         fragmentMainBinding.bt3.setOnClickListener {
-            ketch.download(
-                url = "https://file-examples.com/storage/fec85039006734629a992d7/2017/04/file_example_MP4_1280_10MG.mp4",
-                path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path,
-                fileName = "Sample_Video_3.mp4",
-                tag = "Video",
-                metaData = "48",
-                notificationTitle = "Sample Pdf 1",
-                notificationParameter="REZA5"
+            enqueueDownload(
+                SampleDownloadRequest(
+                    title = "Sample Video 3",
+                    url = "https://raw.githubusercontent.com/mdn/learning-area/main/html/multimedia-and-embedding/video-and-audio-content/rabbit320.mp4",
+                    fileName = "sample_video_3.mp4",
+                    tag = "Video",
+                    metaData = "48",
+                    notificationParameter = "REZA5"
+                )
             )
         }
 
         fragmentMainBinding.bt4.text = "Image 1"
         fragmentMainBinding.bt4.setOnClickListener {
-            ketch.download(
-                url = "https://caspian14.asset.aparat.com/aparat-video/eb0d5927c23b97fc528ea0a3ede2cc8a58304929-144p.mp4?wmsAuthSign=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbiI6IjdiNzE3NjY0NzNiMTY3ODQ1ZjVmZTFmZDA0OGUxYTYyIiwiZXhwIjoxNzI3ODczMTEyLCJpc3MiOiJTYWJhIElkZWEgR1NJRyJ9.t118fy_v7BIHmpwqu7Io5uzBkxMaLcoxaM7sfFAnTYo",
-                path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path,
-                fileName = "Sample_Image_1.jpg",
-                tag = "Document",
-                metaData = "1",
-                notificationTitle = "Sample Pdf 1",
-                notificationParameter="REZA6"
+            enqueueDownload(
+                SampleDownloadRequest(
+                    title = "Sample Image 1",
+                    url = "https://www.gstatic.com/webp/gallery/1.jpg",
+                    fileName = "sample_image_1.jpg",
+                    tag = "Image",
+                    metaData = "1",
+                    notificationParameter = "REZA6"
+                )
             )
         }
 
         fragmentMainBinding.bt5.text = "Pdf 1"
         fragmentMainBinding.bt5.setOnClickListener {
-            ketch.download(
-                url = "https://caspian14.asset.aparat.com/aparat-video/eb0d5927c23b97fc528ea0a3ede2cc8a58304929-144p.mp4?wmsAuthSign=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbiI6IjdiNzE3NjY0NzNiMTY3ODQ1ZjVmZTFmZDA0OGUxYTYyIiwiZXhwIjoxNzI3ODczMTEyLCJpc3MiOiJTYWJhIElkZWEgR1NJRyJ9.t118fy_v7BIHmpwqu7Io5uzBkxMaLcoxaM7sfFAnTYo",
-                path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path,
-                fileName = "Sample_Pdf_1.pdf",
-                tag = "Document",
-                metaData = "5",
-                notificationTitle = "Sample Pdf 1",
-                        notificationParameter="REZA8"
+            enqueueDownload(
+                SampleDownloadRequest(
+                    title = "Sample Pdf 1",
+                    url = "https://raw.githubusercontent.com/mozilla/pdf.js/master/examples/learning/helloworld.pdf",
+                    fileName = "sample_pdf_1.pdf",
+                    tag = "Document",
+                    metaData = "5",
+                    notificationParameter = "REZA8"
+                )
             )
         }
 
         fragmentMainBinding.bt6.text = "Multiple"
+        observer()
 
     }
 
@@ -215,6 +243,36 @@ class MainFragment : Fragment() {
             }
         }
     }
+
+    private fun enqueueDownload(request: SampleDownloadRequest) {
+        val id = ketch.download(
+            url = request.url,
+            path = downloadDir.absolutePath,
+            fileName = request.fileName,
+            tag = request.tag,
+            metaData = request.metaData,
+            notificationTitle = request.title,
+            notificationParameter = request.notificationParameter,
+            headers = hashMapOf(
+                "Accept" to request.acceptHeader
+            ),
+            priority = request.priority,
+            constraints = defaultConstraints,
+            retryPolicy = defaultRetryPolicy
+        )
+        Toast.makeText(requireContext(), "Queued download #$id", Toast.LENGTH_SHORT).show()
+    }
+
+    private data class SampleDownloadRequest(
+        val title: String,
+        val url: String,
+        val fileName: String,
+        val tag: String,
+        val metaData: String = "",
+        val notificationParameter: String = "",
+        val priority: DownloadPriority = DownloadPriority.NORMAL,
+        val acceptHeader: String = "*/*"
+    )
 }
 
 
@@ -237,7 +295,14 @@ class FilesAdapter(private val listener: FileClickListener) :
         @SuppressLint("SetTextI18n")
         fun bind(downloadModel: DownloadModel) {
             binding.fileName.text = downloadModel.fileName
-            binding.status.text = downloadModel.status.toString()
+            binding.status.text = if (
+                downloadModel.status == Status.FAILED &&
+                downloadModel.failureReason.isNotBlank()
+            ) {
+                "${downloadModel.status}: ${downloadModel.failureReason}"
+            } else {
+                downloadModel.status.toString()
+            }
             binding.progressBar.progress = downloadModel.progress
             binding.progressText.text =
                 downloadModel.progress.toString() + "%/" + Util.getTotalLengthText(downloadModel.total) + ", "

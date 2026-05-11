@@ -1,6 +1,5 @@
 package com.ketch.internal.notification
 
-import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -43,6 +42,7 @@ internal class DownloadNotificationManager(
     private val notificationBuilder =
         NotificationCompat.Builder(context, NotificationConst.NOTIFICATION_CHANNEL_ID)
     private val notificationId = requestId // notification id is same as request id
+    private val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -65,6 +65,8 @@ internal class DownloadNotificationManager(
         length: Long = 0L,
         update: Boolean = false
     ): ForegroundInfo? {
+        if (!canPostNotifications()) return null
+
         if (update) {
             foregroundInfo = ForegroundInfo(
                 notificationId,
@@ -96,7 +98,7 @@ internal class DownloadNotificationManager(
                     context.applicationContext,
                     notificationId,
                     intentOpen,
-                    PendingIntent.FLAG_IMMUTABLE
+                    pendingIntentFlags
                 )
 
             // Dismiss Notification
@@ -109,7 +111,7 @@ internal class DownloadNotificationManager(
                 context.applicationContext,
                 notificationId,
                 intentDismiss,
-                PendingIntent.FLAG_IMMUTABLE
+                pendingIntentFlags
             )
 
             // Pause Notification
@@ -124,7 +126,7 @@ internal class DownloadNotificationManager(
                 context.applicationContext,
                 notificationId,
                 intentPause,
-                PendingIntent.FLAG_IMMUTABLE
+                pendingIntentFlags
             )
 
             // Cancel Notification
@@ -139,7 +141,7 @@ internal class DownloadNotificationManager(
                 context.applicationContext,
                 notificationId,
                 intentCancel,
-                PendingIntent.FLAG_IMMUTABLE
+                pendingIntentFlags
             )
 
             foregroundInfo = ForegroundInfo(
@@ -151,6 +153,9 @@ internal class DownloadNotificationManager(
                     .setProgress(DownloadConst.MAX_VALUE_PROGRESS, progress, false)
                     .setOnlyAlertOnce(true)
                     .setOngoing(true)
+                    .setLocalOnly(true)
+                    .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
                     .addAction(-1, NotificationConst.PAUSE_BUTTON_TEXT, pendingIntentPause)
                     .addAction(-1, NotificationConst.CANCEL_BUTTON_TEXT, pendingIntentCancel)
                     .setDeleteIntent(pendingIntentDismiss)
@@ -205,6 +210,7 @@ internal class DownloadNotificationManager(
      * @param totalLength
      */
     fun sendDownloadSuccessNotification(totalLength: Long,notificationParameter: String) {
+        if (!canPostNotifications()) return
         context.applicationContext.sendBroadcast(
             Intent(context, NotificationReceiver::class.java).apply {
                 putExtra(
@@ -239,6 +245,7 @@ internal class DownloadNotificationManager(
      * @param currentProgress current download progress
      */
     fun sendDownloadFailedNotification(currentProgress: Int) {
+        if (!canPostNotifications()) return
         context.applicationContext.sendBroadcast(
             Intent(context, NotificationReceiver::class.java).apply {
                 putExtra(
@@ -261,7 +268,6 @@ internal class DownloadNotificationManager(
                 putExtra(DownloadConst.KEY_REQUEST_ID, requestId)
                 putExtra(DownloadConst.KEY_PARAMETER, notificationParameter)
                 putExtra(NotificationConst.KEY_NOTIFICATION_ID, notificationId)
-                putExtra(NotificationConst.KEY_NOTIFICATION_ID, notificationId)
 
                 putExtra(DownloadConst.KEY_PROGRESS, currentProgress)
                 action = NotificationConst.ACTION_DOWNLOAD_FAILED
@@ -274,6 +280,7 @@ internal class DownloadNotificationManager(
      *
      */
     fun sendDownloadCancelledNotification() {
+        if (!canPostNotifications()) return
         context.applicationContext.sendBroadcast(
             Intent(context, NotificationReceiver::class.java).apply {
                 putExtra(
@@ -307,6 +314,7 @@ internal class DownloadNotificationManager(
      * @param currentProgress current download progress
      */
     fun sendDownloadPausedNotification(currentProgress: Int) {
+        if (!canPostNotifications()) return
         context.applicationContext.sendBroadcast(
             Intent(context, NotificationReceiver::class.java).apply {
                 putExtra(
@@ -339,7 +347,6 @@ internal class DownloadNotificationManager(
      * Create notification channel for File downloads
      *
      */
-    @SuppressLint("WrongConstant")
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
@@ -349,6 +356,12 @@ internal class DownloadNotificationManager(
         )
         channel.description = notificationConfig.channelDescription
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun canPostNotifications(): Boolean {
+        return notificationConfig.enabled &&
+            notificationConfig.smallIcon != NotificationConst.DEFAULT_VALUE_NOTIFICATION_SMALL_ICON &&
+            NotificationPermissionUtil.canPostNotifications(context)
     }
 
 }

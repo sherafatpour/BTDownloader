@@ -1,6 +1,7 @@
 package com.ketch.internal.utils
 
 import com.ketch.DownloadModel
+import com.ketch.DownloadPriority
 import com.ketch.Status
 import com.ketch.internal.database.DownloadEntity
 
@@ -23,5 +24,8 @@ internal fun DownloadEntity.toDownloadModel() =
         metaData = metaData,
         failureReason = failureReason,
         notificationTitle = notificationTitle,
-        notificationParameter = notificationParameter
+        notificationParameter = notificationParameter,
+        priority = DownloadPriority.entries.find { it.value == priority } ?: DownloadPriority.NORMAL,
+        runAttemptCount = runAttemptCount,
+        maxRetries = maxRetries
     )

@@ -1,245 +1,399 @@
-[![](https://jitpack.io/v/khushpanchal/Ketch.svg)](https://jitpack.io/#khushpanchal/Ketch)
-[![](https://androidweekly.net/issues/issue-622/badge)](https://androidweekly.net/issues/issue-622)
-
 # Ketch
 
-## An Android File downloader library based on WorkManager with pause and resume support
+[![](https://jitpack.io/v/BluetileTeam/uturn-android-ketch.svg)](https://jitpack.io/#BluetileTeam/uturn-android-ketch)
+[![](https://androidweekly.net/issues/issue-622/badge)](https://androidweekly.net/issues/issue-622)
+
+Ketch is a Kotlin Android download manager library built on WorkManager, Room, Retrofit, and Flow. It is designed for app-owned download destinations: the consuming app decides permissions, SAF, MediaStore, and UI; Ketch handles durable background execution, queueing, pause/resume, retry, notifications, and observable state.
 
 <p align="center">
   <img width="950" src="https://raw.githubusercontent.com/khushpanchal/Ketch/master/assets/Ketch_logo.png" >
 </p>
 
-# About Ketch
+## Features
 
-Ketch is simple, powerful, customisable file downloader library for Android built entirely in Kotlin. It simplifies the process of downloading files in Android applications by leveraging the power of WorkManager. Ketch guarantees the download irrespective of application state.
+- Background downloads with `WorkManager`
+- Durable state with `Room`
+- Observable downloads with Kotlin `Flow`
+- Pause, resume, retry, cancel, and clear by id, tag, or all downloads
+- Queue management with configurable max concurrent downloads
+- Priority scheduling: `LOW`, `NORMAL`, `HIGH`, `IMMEDIATE`
+- Per-download constraints: connected, unmetered, not-roaming, charging, battery-not-low, storage-not-low
+- Automatic retry with linear or exponential backoff
+- HTTP resume support using `Range`
+- Best-effort ETag validation before resume
+- Signed URL and CDN-friendly defaults: browser-like user agent, identity encoding, unknown content length support
+- Temporary `.bt` files while downloading, final extension only after success
+- Custom headers and metadata
+- Configurable foreground notifications with action buttons
+- Custom logger support
 
-<p align="center">
-  <img height="500" alt = "High level design" src=https://raw.githubusercontent.com/khushpanchal/Ketch/master/assets/Sample_app.png >
-</p>
+## Current Platform
 
-# Why use Ketch
-
-- Ketch can download any type of file. (jpg, png, gif, mp4, mp3, pdf, apk and many more)
-- Ketch guarantees file download unless cancelled explicitly or download is failed.
-- Ketch provide all download info including speed, file size, progress.
-- Ketch provide option to pause, resume, cancel, retry and delete the download file.
-- Ketch provide option to observe download items (or single download item) as Flow.
-- Ketch can download multiple files in parallel.
-- Ketch support large file downloads.
-- Ketch provide various customisation including custom timeout and custom notification.
-- Ketch is simple and very easy to use.
-- Ketch provide notification for each download providing download info (speed, time left, total size, progress).
-- Ketch includes option to pause, resume, retry and cancel download from notification.
-
-<p align="center">
-  <img height="200" alt = "High level design" src=https://raw.githubusercontent.com/khushpanchal/Ketch/master/assets/Sample_notification.png >
-</p>
-
-# How to use Ketch
+| Item | Version |
+| --- | --- |
+| Min SDK | 23 |
+| Compile SDK | 36 |
+| Target SDK sample | 36 |
+| Gradle | 9.2.1 |
+| Android Gradle Plugin | 9.0.1 |
+| WorkManager | 2.11.2 |
+| Room | 2.8.4 |
+| Retrofit | 3.0.0 |
 
 ## Installation
 
-To integrate Ketch library into your Android project, follow these simple steps:
+Current release version:
 
-- Update your settings.gradle file with the following dependency.
-   
-```Groovy
+```text
+2.1.0
+```
+
+Add JitPack:
+
+```groovy
 dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-  repositories {
-    google()
-    mavenCentral()
-    maven { url 'https://jitpack.io' } // this one
-  }
-}
-```
-
-- Update your module level build.gradle file with the following dependency.
-   
-```Groovy
-dependencies {
-  implementation 'com.github.khushpanchal:Ketch:2.0.0'
-}
-```
-
-## Usage
-
-- Simplest way to use Ketch:
-  
-  - Create the instance of Ketch in application onCreate. (Ketch is a singleton class and instance will create automatically on first use)
-    
-    ```Kotlin
-      private lateinit var ketch: Ketch
-      override fun onCreate() {
-        super.onCreate()
-        ketch = Ketch.builder().build(this)
-      }
-    ```
-    
-  - Call the download() function, pass the url, fileName, path and observe the download status
-    
-    ```Kotlin
-      val id = ketch.download(url, fileName, path)
-      lifecycleScope.launch {
-        repeatOnLifecycle(Lifecycle.State.STARTED) {
-          ketch.observeDownloadById(id)
-            .collect { downloadModel -> 
-              // use downloadModel
-            }
-        }
-      }
-    ```
-    
-  ### Important Note: Add the appropriate storage permission based on API level or onFailure(error) callback will be triggered. Check out sample app for reference.
-  
-- To cancel the download
-  
-  ```Kotlin
-      ketch.cancel(downloadModel.id) // other options: cancel(tag), cancelAll()
-  ```
-
-- To pause the download
-  
-  ```Kotlin
-      ketch.pause(downloadModel.id) // other options: pause(tag), pauseAll()
-  ```
-
-- To resume the download
-  
-  ```Kotlin
-      ketch.resume(downloadModel.id) // other options: resume(tag), resumeAll()
-  ```
-
-- To retry the download
-  
-  ```Kotlin
-      ketch.retry(downloadModel.id) // other options: retry(tag), retryAll()
-  ```
-
-- To delete the download
-
-  ```Kotlin
-      ketch.clearDb(downloadModel.id) // other options: clearDb(tag), clearAllDb(), clearDb(timeInMillis)
-  ```
-
-- Observing: Provides state flow of download items (Each item carries download info like url, fileName, path, tag, id, timeQueued, status, progress, length, speed, lastModified, metaData, failureReson, eTag)
-
-  ```Kotlin
-    //To observe from Fragment
-    viewLifecycleOwner.lifecycleScope.launch {
-      repeatOnLifecycle(Lifecycle.State.STARTED) {
-        ketch.observeDownloads()
-          .collect { 
-             //set items to adapter
-          }
-      }
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
     }
-  ```
-  
-- To enable the notification:
-  
-  - Add the notification permission in manifest file.
-    
-     ```
-      <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-     ```
-     
-   - Request permission from user (required from Android 13 (API level 33)). Check out sample app for reference.
-   - Pass the notification config while initialization
-     
-     ```Kotlin
-     ketch = Ketch.builder().setNotificationConfig(
-              config = NotificationConfig(
-                enabled = true,
-                smallIcon = R.drawable.ic_launcher_foreground // It is required to pass the smallIcon for notification.
-              )
-            ).build(this)
-     ```
-     
-## Customisation
-  
-- Provide headers with network request.
-  
-  ```Kotlin
-  ketch.download(url, fileName, path,
-   headers = headers, //Default: Empty hashmap
-  )
-  ```
-  
-- Tag: Group various downloads by providing additional Tag. (This tag can be use to cancel, pause, resume, delete the download as well)
+}
+```
 
-  ```Kotlin
-  ketch.download(url, fileName, path,
-   tag = tag, //Default: null
-  )
-  ```
-  
-- Download config: Provides custom connect and read timeout
+Add Ketch:
 
-  ```Kotlin
-    ketch = Ketch.builder().setDownloadConfig(
-      config = DownloadConfig(
-        connectTimeOutInMs = 20000L, //Default: 10000L
-        readTimeOutInMs = 15000L //Default: 10000L
-      )
-    ).build(this)
-  ```
-  
-- Notification config: Provide custom notification config
+```groovy
+dependencies {
+    implementation 'com.github.BluetileTeam.uturn-android-ketch:ketch:2.1.0'
+}
+```
 
-  ```Kotlin
-    ketch = Ketch.builder().setNotificationConfig(
-      config = NotificationConfig(
-        enabled = true, //Default: false
-        channelName = channelName, //Default: "File Download"
-        channelDescription = channelDescription, //Default: "Notify file download status"
-        importance = importance, //Default: NotificationManager.IMPORTANCE_HIGH
-        smallIcon = smallIcon, //It is required
-        showSpeed = true, //Default: true
-        showSize = true, //Default: true
-        showTime = true //Default: true
-      )
-    ).build(this)
-  ```
+For Kotlin DSL:
 
-# Blog
+```kotlin
+dependencies {
+    implementation("com.github.BluetileTeam.uturn-android-ketch:ketch:2.1.0")
+}
+```
 
-Check out the blog to understand working of Ketch (High Level Design): [https://medium.com/@khush.panchal123/ketch-android-file-downloader-library-7369f7b93bd1](https://medium.com/@khush.panchal123/ketch-android-file-downloader-library-7369f7b93bd1)
+JitPack builds this repository from the release tag `2.1.0`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
-### High level Design
+```text
+com.github.<GitHubUserOrOrg>.<RepositoryName>:ketch:<Tag>
+```
 
-<p align="center">
-  <img width="950" src="https://raw.githubusercontent.com/khushpanchal/Ketch/master/assets/Ketch_hld.png" >
-</p>
+When developing from this repository:
 
-## Contact Me
+```groovy
+dependencies {
+    implementation project(':ketch')
+}
+```
 
-- [LinkedIn](https://www.linkedin.com/in/khush-panchal-241098170/)
-- [Twitter](https://twitter.com/KhushPanchal15)
-- [Gmail](mailto:khush.panchal123@gmail.com)
+## Release With JitPack
 
-## Check out my blogs: [https://medium.com/@khush.panchal123](https://medium.com/@khush.panchal123)
+This repository is configured for JitPack through `jitpack.yml` and the `:ketch` `release` Maven publication.
 
-## If this project helps you, show love ❤️ by putting a ⭐ on [this](https://github.com/khushpanchal/Ketch) project ✌️
+Release coordinates:
 
-## Contribute to the project
+```text
+com.github.BluetileTeam.uturn-android-ketch:ketch:2.1.0
+```
 
-Feel free to provide feedback, report an issue, or contribute to Ketch. Head over to [GitHub repository](https://github.com/khushpanchal/Ketch), create an issue or find the pending issue. All pull requests are welcome 😄
+Release checklist:
+
+```bash
+./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
+./gradlew :ketch:compileDebugKotlin :app:assembleDebug
+git tag 2.1.0
+git push origin codex/ketch-jitpack-release
+git push origin 2.1.0
+```
+
+Then open:
+
+```text
+https://jitpack.io/#BluetileTeam/uturn-android-ketch/2.1.0
+```
+
+Wait for JitPack to finish building the tag. The build command used by JitPack is:
+
+```bash
+./gradlew :ketch:publishReleasePublicationToMavenLocal -x test
+```
+
+The release publication produces:
+
+- `ketch-2.1.0.aar`
+- `ketch-2.1.0.pom`
+- `ketch-2.1.0-sources.jar`
+
+## Quick Start
+
+Create a singleton instance in your application layer:
+
+```kotlin
+class MainApplication : Application() {
+    lateinit var ketch: Ketch
+
+    override fun onCreate() {
+        super.onCreate()
+        ketch = Ketch.builder()
+            .setDownloadConfig(
+                DownloadConfig(
+                    connectTimeOutInMs = 20_000L,
+                    readTimeOutInMs = 20_000L,
+                    maxConcurrentDownloads = 3
+                )
+            )
+            .enableLogs(BuildConfig.DEBUG)
+            .build(this)
+    }
+}
+```
+
+Start a download:
+
+```kotlin
+val id = ketch.download(
+    url = "https://example.com/video.mp4",
+    path = filesDir.absolutePath,
+    fileName = "video.mp4"
+)
+```
+
+Observe it:
+
+```kotlin
+viewLifecycleOwner.lifecycleScope.launch {
+    repeatOnLifecycle(Lifecycle.State.STARTED) {
+        ketch.observeDownloadById(id).collect { download ->
+            progressBar.progress = download.progress
+        }
+    }
+}
+```
+
+## Advanced Download Options
+
+```kotlin
+val id = ketch.download(
+    url = url,
+    path = destinationDir.absolutePath,
+    fileName = "movie.mp4",
+    tag = "movies",
+    metaData = """{"source":"catalog"}""",
+    notificationTitle = "Movie",
+    notificationParameter = "1080p",
+    headers = hashMapOf("Authorization" to "Bearer $token"),
+    priority = DownloadPriority.HIGH,
+    constraints = DownloadConstraints(
+        networkType = KetchNetworkType.UNMETERED,
+        requiresCharging = false,
+        requiresBatteryNotLow = true,
+        requiresStorageNotLow = false
+    ),
+    retryPolicy = RetryPolicy(
+        maxRetries = 5,
+        backoffDelayInMs = 15_000L,
+        backoffPolicy = KetchBackoffPolicy.EXPONENTIAL
+    )
+)
+```
+
+## Queue And Priority
+
+Ketch stores every request in Room first. It then schedules pending work according to:
+
+1. `DownloadConfig.maxConcurrentDownloads`
+2. `DownloadPriority`
+3. `timeQueued`
+
+The default concurrent limit is `3`. If five files are queued and the limit is `3`, only three WorkManager jobs are active at a time. When a slot finishes, Ketch schedules the next highest-priority pending item.
+
+## Controls
+
+```kotlin
+ketch.pause(id)
+ketch.resume(id)
+ketch.retry(id)
+ketch.cancel(id)
+ketch.clearDb(id)
+```
+
+Each command also supports tags or all downloads:
+
+```kotlin
+ketch.pause("movies")
+ketch.resumeAll()
+ketch.cancelAll()
+ketch.clearAllDb()
+```
+
+## Observability
+
+```kotlin
+ketch.observeDownloads(): Flow<List<DownloadModel>>
+ketch.observeDownloadById(id): Flow<DownloadModel>
+ketch.observeDownloadByTag(tag): Flow<List<DownloadModel>>
+ketch.getAllDownloads(): List<DownloadModel>
+```
+
+`DownloadModel` includes URL, path, file name, tag, id, headers, status, total bytes, progress, speed, ETag, metadata, failure reason, priority, and retry attempt info.
+
+## Status Lifecycle
+
+```text
+QUEUED -> SCHEDULED -> STARTED -> PROGRESS -> SUCCESS
+                                      |
+                                      +-> PAUSED / CANCELLED / FAILED
+```
+
+`QUEUED` means waiting for a local Ketch queue slot. `SCHEDULED` means Ketch has handed the job to WorkManager and it may be waiting for constraints/backoff or worker execution. If a download stays on `SCHEDULED`, check network constraints, WorkManager state, storage permissions, and whether the URL host is reachable.
+
+## Temporary File Behavior
+
+Ketch does not expose a real final extension before the download is complete. If you request:
+
+```kotlin
+fileName = "movie.mp4"
+```
+
+Ketch writes:
+
+```text
+movie.bt
+```
+
+After a successful download, it atomically renames the temporary file to:
+
+```text
+movie.mp4
+```
+
+Cancel and clear operations remove both the final file and the temporary `.bt` file.
+
+## Signed URLs And CDN Links
+
+Ketch supports long query-string URLs such as CDN signed links:
+
+```kotlin
+ketch.download(
+    url = signedUrl,
+    path = downloadDir.absolutePath,
+    fileName = "video.mp4",
+    headers = hashMapOf(
+        "Accept" to "video/mp4,*/*",
+        "User-Agent" to "Mozilla/5.0 (Linux; Android 14)"
+    )
+)
+```
+
+For maximum compatibility:
+
+- Always pass an explicit `fileName` for signed URLs.
+- Refresh expired signed URLs in the app layer.
+- Ketch treats `HEAD`/ETag checks as best effort; if a CDN rejects or times out on `HEAD`, Ketch still attempts the actual `GET`.
+- Unknown `Content-Length` is supported, so chunked/CDN responses can still stream to disk.
+
+## Storage Policy
+
+Ketch intentionally does not own SAF, MediaStore UI, or permission flows. The consuming application must decide and prepare the writable destination.
+
+Recommended patterns:
+
+- Use app-specific directories when possible.
+- Use SAF in the app layer when the user must pick a document/tree.
+- Persist URI permissions in the app layer.
+- Convert the app-owned destination to a path only when that is valid for your storage model.
+
+## Notifications
+
+Add notification permission for Android 13+:
+
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+Enable notifications:
+
+```kotlin
+ketch = Ketch.builder()
+    .setNotificationConfig(
+        NotificationConfig(
+            enabled = true,
+            smallIcon = R.drawable.ic_stat_download
+        )
+    )
+    .build(this)
+```
+
+Notification actions support pause, cancel, resume, retry, and terminal status updates.
+
+Ketch checks `POST_NOTIFICATIONS` on Android 13+ and skips notification posting when permission or app notifications are disabled. The consuming app still owns requesting the permission from the user.
+
+Initialize Ketch in `Application.onCreate()` before notification actions are used. Android may deliver notification broadcasts after process recreation, and the singleton should be rebuilt with the same app-level config.
+
+## Content Metadata Helpers
+
+```kotlin
+val isSame = ketch.isContentValid(url, eTag = knownETag)
+val bytes = ketch.getContentLength(url)
+```
+
+These helpers use `HEAD` requests through the same network stack.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    App["App"] --> Ketch["Ketch API"]
+    Ketch --> Manager["DownloadManager"]
+    Manager --> Room["Room"]
+    Manager --> WorkManager["WorkManager"]
+    WorkManager --> Worker["DownloadWorker"]
+    Worker --> Task["DownloadTask"]
+    Task --> Retrofit["Retrofit/OkHttp"]
+    Worker --> Files["Temp/final files"]
+    Worker --> Notifications["Notifications"]
+    Room --> Flow["Flow<DownloadModel>"]
+    Flow --> App
+```
+
+## Development
+
+Run the core verification:
+
+```bash
+./gradlew :ketch:assembleDebug :ketch:testDebugUnitTest
+```
+
+Run the sample app build:
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+Full check used for this repository:
+
+```bash
+./gradlew :ketch:assembleDebug :ketch:testDebugUnitTest :app:assembleDebug --warning-mode all
+```
+
+## More Documentation
+
+- [Full Ketch library documentation](docs/KETCH_LIBRARY_DOCUMENTATION.md)
+- [Agent guide](AGENTS.md)
 
 ## License
 
-```
-   Copyright (C) 2024 Khush Panchal
+```text
+Copyright (C) 2024 Khush Panchal
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+    http://www.apache.org/licenses/LICENSE-2.0
 ```

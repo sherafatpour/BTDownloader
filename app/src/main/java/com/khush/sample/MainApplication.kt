@@ -15,7 +15,7 @@ class MainApplication: Application() {
                 enabled = true,
                 smallIcon = R.drawable.ic_launcher_foreground
             )
-        ).build(this)
+        ).enableLogs(true).build(this)
     }
 
 }

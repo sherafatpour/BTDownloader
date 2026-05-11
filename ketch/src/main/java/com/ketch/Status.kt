@@ -4,6 +4,8 @@ enum class Status {
 
     QUEUED,
 
+    SCHEDULED,
+
     STARTED,
 
     PROGRESS,

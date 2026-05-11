@@ -24,5 +24,5 @@ internal object DatabaseInstance {
             context.applicationContext,
             DownloadDatabase::class.java,
             "ketch_downloader"
-        ).fallbackToDestructiveMigration().build()
+        ).fallbackToDestructiveMigration(dropAllTables = true).build()
 }

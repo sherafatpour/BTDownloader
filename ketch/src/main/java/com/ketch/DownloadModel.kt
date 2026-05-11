@@ -37,5 +37,8 @@ data class DownloadModel(
     val lastModified: Long,
     val eTag: String,
     val metaData: String,
-    val failureReason: String
+    val failureReason: String,
+    val priority: DownloadPriority = DownloadPriority.NORMAL,
+    val runAttemptCount: Int = 0,
+    val maxRetries: Int = 0
 )

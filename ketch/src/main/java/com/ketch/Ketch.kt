@@ -67,7 +67,7 @@ import kotlinx.coroutines.withContext
  *
  * JOURNEY OF SINGLE DOWNLOAD FILE:
  *
- * [Status.QUEUED] -> [Status.STARTED] -> [Status.PROGRESS] -> Download in progress
+ * [Status.QUEUED] -> [Status.SCHEDULED] -> [Status.STARTED] -> [Status.PROGRESS] -> Download in progress
  * Terminating states: [Status.PAUSED], [Status.CANCELLED], [Status.FAILED], [Status.SUCCESS]
  *
  * @property context Application context
@@ -159,7 +159,10 @@ class Ketch private constructor(
         metaData: String = "",
         notificationTitle: String = "",
         notificationParameter: String = "",
-        headers: HashMap<String, String> = hashMapOf()
+        headers: HashMap<String, String> = hashMapOf(),
+        priority: DownloadPriority = DownloadPriority.NORMAL,
+        constraints: DownloadConstraints = DownloadConstraints(),
+        retryPolicy: RetryPolicy = RetryPolicy()
     ): Int {
 
         require(url.isNotEmpty() && path.isNotEmpty() && fileName.isNotEmpty()) {
@@ -174,7 +177,10 @@ class Ketch private constructor(
             headers = headers,
             metaData = metaData,
             notificationTitle = notificationTitle,
-            notificationParameter = notificationParameter
+            notificationParameter = notificationParameter,
+            priority = priority,
+            constraints = constraints,
+            retryPolicy = retryPolicy
         )
         downloadManager.downloadAsync(downloadRequest)
         return downloadRequest.id

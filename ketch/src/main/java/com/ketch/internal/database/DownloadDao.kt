@@ -44,4 +44,17 @@ internal interface DownloadDao {
 
     @Query("SELECT * FROM downloads WHERE tag = :tag ORDER BY timeQueued ASC")
     suspend fun getAllEntityByTag(tag: String): List<DownloadEntity>
+
+    @Query(
+        "SELECT * FROM downloads " +
+            "WHERE status = :status AND uuid = '' " +
+            "ORDER BY priority DESC, timeQueued ASC"
+    )
+    suspend fun getPendingEntity(status: String): List<DownloadEntity>
+
+    @Query(
+        "SELECT COUNT(*) FROM downloads " +
+            "WHERE uuid != '' AND status IN (:statuses)"
+    )
+    suspend fun countScheduledEntity(statuses: List<String>): Int
 }

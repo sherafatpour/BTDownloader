@@ -1,8 +1,8 @@
 package com.ketch.internal.utils
 
 internal object DownloadConst {
-    const val DEFAULT_VALUE_READ_TIMEOUT_MS = 10000L
-    const val DEFAULT_VALUE_CONNECT_TIMEOUT_MS = 10000L
+    const val DEFAULT_VALUE_READ_TIMEOUT_MS = 30000L
+    const val DEFAULT_VALUE_CONNECT_TIMEOUT_MS = 30000L
     const val BASE_URL = "http://localhost/"
     const val TAG_DOWNLOAD = "downloads"
     const val KEY_FILE_NAME = "key_fileName"
@@ -21,5 +21,9 @@ internal object DownloadConst {
     const val ETAG_HEADER = "ETag"
     const val CONTENT_LENGTH = "Content-Length"
     const val RANGE_HEADER = "Range"
+    const val USER_AGENT_HEADER = "User-Agent"
+    const val ACCEPT_HEADER = "Accept"
+    const val ACCEPT_ENCODING_HEADER = "Accept-Encoding"
+    const val HTTP_OK = 200
     const val HTTP_RANGE_NOT_SATISFY = 416
 }

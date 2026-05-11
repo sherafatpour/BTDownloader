@@ -27,7 +27,15 @@ internal class DownloadTask(
     ): Long {
 
         var rangeStart = 0L
-        val file = File(path, fileName)
+        val directory = File(path)
+        if (!directory.exists() && !directory.mkdirs()) {
+            throw IOException("Failed to create download directory: $path")
+        }
+        if (!directory.isDirectory) {
+            throw IOException("Download path is not a directory: $path")
+        }
+
+        val file = File(directory, fileName)
 
         if (file.exists()) {
             rangeStart = file.length()
@@ -36,11 +44,10 @@ internal class DownloadTask(
         if (rangeStart != 0L) {
             headers[DownloadConst.RANGE_HEADER] = "bytes=$rangeStart-"
         }
+        addDefaultHeaders(headers)
 
         var response = downloadService.getUrl(url, headers)
-        if (response.code() == DownloadConst.HTTP_RANGE_NOT_SATISFY || isRedirection(
-                response.raw().request().url().toString()
-            )
+        if (shouldRestartDownload(responseCode = response.code(), rangeStart = rangeStart)
         ) {
             FileUtil.deleteFileIfExists(path, fileName)
             headers.remove(DownloadConst.RANGE_HEADER)
@@ -60,13 +67,13 @@ internal class DownloadTask(
 
         var totalBytes = responseBody.contentLength()
 
-        if (totalBytes < 0) throw IOException("Content Length is wrong: $totalBytes")
-
         var progressBytes = 0L
 
-        totalBytes += rangeStart
+        if (totalBytes >= 0) {
+            totalBytes += rangeStart
+        }
 
-        val out = FileOutputStream(file, true)
+        val out = FileOutputStream(file, rangeStart != 0L)
 
         responseBody.byteStream().use { inputStream ->
             out.use { outputStream ->
@@ -75,7 +82,7 @@ internal class DownloadTask(
                     progressBytes = rangeStart
                 }
 
-                onStart.invoke(totalBytes)
+                onStart.invoke(totalBytes.coerceAtLeast(0L))
 
                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                 var bytes = inputStream.read(buffer)
@@ -95,22 +102,36 @@ internal class DownloadTask(
                         speed = tempBytes.toFloat() / ((finalTime - progressInvokeTime).toFloat())
                         tempBytes = 0L
                         progressInvokeTime = System.currentTimeMillis()
-                        if (progressBytes > totalBytes) progressBytes = totalBytes
+                        if (totalBytes > 0 && progressBytes > totalBytes) progressBytes = totalBytes
                         onProgress.invoke(
                             progressBytes,
-                            totalBytes,
+                            totalBytes.coerceAtLeast(0L),
                             speed
                         )
                     }
                 }
-                onProgress.invoke(totalBytes, totalBytes, 0F)
+                onProgress.invoke(
+                    if (totalBytes > 0) totalBytes else progressBytes,
+                    totalBytes.coerceAtLeast(progressBytes),
+                    0F
+                )
             }
         }
 
-        return totalBytes
+        return totalBytes.coerceAtLeast(progressBytes)
     }
 
-    private fun isRedirection(requestUrl: String): Boolean {
-        return requestUrl != url
+    private fun addDefaultHeaders(headers: MutableMap<String, String>) {
+        headers.putIfAbsent(DownloadConst.ACCEPT_HEADER, "*/*")
+        headers.putIfAbsent(DownloadConst.ACCEPT_ENCODING_HEADER, "identity")
+        headers.putIfAbsent(
+            DownloadConst.USER_AGENT_HEADER,
+            "Mozilla/5.0 (Linux; Android) KetchDownloader/1.0"
+        )
+    }
+
+    private fun shouldRestartDownload(responseCode: Int, rangeStart: Long): Boolean {
+        return rangeStart > 0L &&
+            (responseCode == DownloadConst.HTTP_RANGE_NOT_SATISFY || responseCode == DownloadConst.HTTP_OK)
     }
 }

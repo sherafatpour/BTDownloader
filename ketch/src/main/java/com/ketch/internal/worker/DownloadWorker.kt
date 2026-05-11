@@ -2,6 +2,7 @@ package com.ketch.internal.worker
 
 import android.content.Context
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ketch.Status
@@ -16,9 +17,10 @@ import com.ketch.internal.utils.FileUtil
 import com.ketch.internal.utils.UserAction
 import com.ketch.internal.utils.WorkUtil
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 internal class DownloadWorker(
     private val context: Context,
@@ -56,9 +58,9 @@ internal class DownloadWorker(
         val id = downloadRequest.id
         val url = downloadRequest.url
         val dirPath = downloadRequest.path
-        val originalFileName = downloadRequest.url.split("/").last()
-        val fileName =FileUtil.changeFileExtensionToBt(downloadRequest.fileName)
-        val headers = downloadRequest.headers
+        val finalFileName = downloadRequest.fileName
+        val tempFileName = FileUtil.getTempFileName(finalFileName)
+        val headers = downloadRequest.headers.toMutableMap()
         val tag = downloadRequest.tag
         val notificationTitle = downloadRequest.notificationTitle
         val notificationParameter = downloadRequest.notificationParameter
@@ -68,7 +70,7 @@ internal class DownloadWorker(
                 context = context,
                 notificationConfig = notificationConfig,
                 requestId = id,
-                fileName = notificationTitle.ifEmpty { fileName },
+                fileName = notificationTitle.ifEmpty { finalFileName },
                 notificationParameter = notificationParameter
             )
         }
@@ -79,20 +81,18 @@ internal class DownloadWorker(
         )
 
         return try {
-            downloadNotificationManager?.sendUpdateNotification()?.let {
-                setForeground(
-                    it
-                )
-            }
+            markAsStarted(id)
+            setForegroundSafely(downloadNotificationManager?.sendUpdateNotification())
 
-            val latestETag =
+            val latestETag = runCatching {
                 ApiResponseHeaderChecker(downloadRequest.url, downloadService, headers)
-                    .getHeaderValue(DownloadConst.ETAG_HEADER) ?: ""
+                    .getHeaderValue(DownloadConst.ETAG_HEADER)
+            }.getOrNull().orEmpty()
 
             val existingETag = downloadDao.find(id)?.eTag ?: ""
 
-            if (latestETag != existingETag) {
-                FileUtil.deleteFileIfExists(path = dirPath, name = fileName)
+            if (latestETag.isNotEmpty() && latestETag != existingETag) {
+                FileUtil.deleteFileIfExists(path = dirPath, name = tempFileName)
                 downloadDao.find(id)?.copy(
                     eTag = latestETag,
                     lastModified = System.currentTimeMillis()
@@ -104,7 +104,7 @@ internal class DownloadWorker(
             val totalLength = DownloadTask(
                 url = url,
                 path = dirPath,
-                fileName = fileName,
+                fileName = tempFileName,
                 downloadService = downloadService
             ).download(
                 headers = headers,
@@ -113,6 +113,8 @@ internal class DownloadWorker(
                     downloadDao.find(id)?.copy(
                         totalBytes = length,
                         status = Status.STARTED.toString(),
+                        failureReason = "",
+                        runAttemptCount = runAttemptCount + 1,
                         lastModified = System.currentTimeMillis()
                     )?.let { downloadDao.update(it) }
 
@@ -130,7 +132,7 @@ internal class DownloadWorker(
                         0
                     }
 
-                    if (progressPercentage != progress) {
+                    if (progressPercentage != progress || length == 0L) {
 
                         progressPercentage = progress
 
@@ -138,6 +140,8 @@ internal class DownloadWorker(
                             downloadedBytes = downloadedBytes,
                             speedInBytePerMs = speed,
                             status = Status.PROGRESS.toString(),
+                            failureReason = "",
+                            runAttemptCount = runAttemptCount + 1,
                             lastModified = System.currentTimeMillis()
                         )?.let { downloadDao.update(it) }
 
@@ -154,33 +158,39 @@ internal class DownloadWorker(
                         speedInBPerMs = speed,
                         length = length,
                         update = true
-                    )?.let {
-                        setForeground(
-                            it
-                        )
-                    }
+                    )?.let { setForegroundSafely(it) }
                 }
             )
+
+            val renamed = FileUtil.renameTempFile(
+                tempFileName = tempFileName,
+                finalFileName = finalFileName,
+                downloadsDirectory = File(dirPath)
+            )
+            if (!renamed) {
+                throw IOException("Failed to rename temporary download file to $finalFileName")
+            }
 
             downloadDao.find(id)?.copy(
                 totalBytes = totalLength,
                 status = Status.SUCCESS.toString(),
+                uuid = "",
                 lastModified = System.currentTimeMillis()
             )?.let { downloadDao.update(it) }
 
-            //rename to original file name
-            FileUtil.renameFile(tempPath = fileName,originalFileName, downloadsDirectory = File(dirPath))
-            downloadNotificationManager?.sendDownloadSuccessNotification(totalLength,notificationParameter)
+            downloadNotificationManager?.sendDownloadSuccessNotification(totalLength, notificationParameter)
 
 
             Result.success()
         } catch (e: Exception) {
-            GlobalScope.launch {
+            val shouldRetry = e !is CancellationException && runAttemptCount < downloadRequest.retryPolicy.maxRetries
+            withContext(NonCancellable) {
                 if (e is CancellationException) {
                     if (downloadDao.find(id)?.userAction == UserAction.PAUSE.toString()) {
 
                         downloadDao.find(id)?.copy(
                             status = Status.PAUSED.toString(),
+                            uuid = "",
                             lastModified = System.currentTimeMillis()
                         )?.let { downloadDao.update(it) }
                         val downloadEntity = downloadDao.find(id)
@@ -199,21 +209,25 @@ internal class DownloadWorker(
 
                         downloadDao.find(id)?.copy(
                             status = Status.CANCELLED.toString(),
+                            uuid = "",
                             lastModified = System.currentTimeMillis()
                         )?.let { downloadDao.update(it) }
-                        FileUtil.deleteFileIfExists(dirPath, fileName)
+                        FileUtil.deleteFileIfExists(dirPath, tempFileName)
                         downloadNotificationManager?.sendDownloadCancelledNotification()
 
                     }
                 } else {
 
-                    downloadDao.find(id)?.copy(
-                        status = Status.FAILED.toString(),
-                        failureReason = e.message ?: "",
+                    val failedEntity = downloadDao.find(id)
+                    failedEntity?.copy(
+                        status = if (shouldRetry) Status.SCHEDULED.toString() else Status.FAILED.toString(),
+                        uuid = if (shouldRetry) failedEntity.uuid else "",
+                        failureReason = e.message ?: e::class.java.simpleName,
+                        runAttemptCount = runAttemptCount + 1,
                         lastModified = System.currentTimeMillis()
                     )?.let { downloadDao.update(it) }
                     val downloadEntity = downloadDao.find(id)
-                    if (downloadEntity != null) {
+                    if (downloadEntity != null && !shouldRetry) {
                         val currentProgress = if (downloadEntity.totalBytes != 0L) {
                             ((downloadEntity.downloadedBytes * MAX_PERCENT) / downloadEntity.totalBytes).toInt()
                         } else {
@@ -225,11 +239,36 @@ internal class DownloadWorker(
                     }
                 }
             }
+            if (shouldRetry) {
+                return Result.retry()
+            }
             Result.failure(
                 workDataOf(ExceptionConst.KEY_EXCEPTION to e.message)
             )
         }
 
+    }
+
+    private suspend fun markAsStarted(id: Int) {
+        downloadDao.find(id)?.copy(
+            status = Status.STARTED.toString(),
+            failureReason = "",
+            runAttemptCount = runAttemptCount + 1,
+            lastModified = System.currentTimeMillis()
+        )?.let { downloadDao.update(it) }
+
+        setProgress(
+            workDataOf(
+                DownloadConst.KEY_STATE to DownloadConst.STARTED
+            )
+        )
+    }
+
+    private suspend fun setForegroundSafely(foregroundInfo: ForegroundInfo?) {
+        if (foregroundInfo == null) return
+        runCatching {
+            setForeground(foregroundInfo)
+        }
     }
 
 }

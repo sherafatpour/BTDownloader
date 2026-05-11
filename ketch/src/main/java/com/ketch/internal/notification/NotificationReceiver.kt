@@ -1,6 +1,5 @@
 package com.ketch.internal.notification
 
-import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -26,11 +25,11 @@ import com.ketch.internal.utils.TextUtil
  */
 internal class NotificationReceiver : BroadcastReceiver() {
 
-    @SuppressLint("MissingPermission")
     override fun onReceive(context: Context?, intent: Intent?) {
 
         if (context == null || intent == null) return
         val ketch = Ketch.builder().build(context)
+        val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
         // Resume the download and dismiss the notification
         if (intent.action == NotificationConst.ACTION_NOTIFICATION_RESUME_CLICK) {
@@ -131,7 +130,7 @@ internal class NotificationReceiver : BroadcastReceiver() {
                     context.applicationContext,
                     notificationId,
                     intentOpen,
-                    PendingIntent.FLAG_IMMUTABLE
+                    pendingIntentFlags
                 )
 
             // Resume Notification
@@ -140,13 +139,13 @@ internal class NotificationReceiver : BroadcastReceiver() {
             }
             intentResume.putExtra(NotificationConst.KEY_NOTIFICATION_ID, notificationId)
             intentResume.putExtra(DownloadConst.KEY_REQUEST_ID, requestId)
-            intentOpen?.putExtra(DownloadConst.KEY_PARAMETER, parameter)
+            intentResume.putExtra(DownloadConst.KEY_PARAMETER, parameter)
 
             val pendingIntentResume = PendingIntent.getBroadcast(
                 context.applicationContext,
                 notificationId,
                 intentResume,
-                PendingIntent.FLAG_IMMUTABLE
+                pendingIntentFlags
             )
 
             // Retry Notification
@@ -155,14 +154,14 @@ internal class NotificationReceiver : BroadcastReceiver() {
             }
             intentRetry.putExtra(NotificationConst.KEY_NOTIFICATION_ID, notificationId)
             intentRetry.putExtra(DownloadConst.KEY_REQUEST_ID, requestId)
-            intentOpen?.putExtra(DownloadConst.KEY_PARAMETER, parameter)
+            intentRetry.putExtra(DownloadConst.KEY_PARAMETER, parameter)
 
             val pendingIntentRetry =
                 PendingIntent.getBroadcast(
                     context.applicationContext,
                     notificationId,
                     intentRetry,
-                    PendingIntent.FLAG_IMMUTABLE
+                    pendingIntentFlags
                 )
 
             // Cancel Notification
@@ -171,13 +170,13 @@ internal class NotificationReceiver : BroadcastReceiver() {
             }
             intentCancel.putExtra(NotificationConst.KEY_NOTIFICATION_ID, notificationId)
             intentCancel.putExtra(DownloadConst.KEY_REQUEST_ID, requestId)
-            intentOpen?.putExtra(DownloadConst.KEY_PARAMETER, parameter)
+            intentCancel.putExtra(DownloadConst.KEY_PARAMETER, parameter)
 
             val pendingIntentCancel = PendingIntent.getBroadcast(
                 context.applicationContext,
                 notificationId,
                 intentCancel,
-                PendingIntent.FLAG_IMMUTABLE
+                pendingIntentFlags
             )
 
             var notificationBuilder =
@@ -202,6 +201,9 @@ internal class NotificationReceiver : BroadcastReceiver() {
                     .setOnlyAlertOnce(true)
                     .setOngoing(false)
                     .setAutoCancel(true)
+                    .setLocalOnly(true)
+                    .setCategory(NotificationCompat.CATEGORY_STATUS)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
 
             // add retry and cancel button for failed download
             if (intent.action == NotificationConst.ACTION_DOWNLOAD_FAILED) {
@@ -229,10 +231,12 @@ internal class NotificationReceiver : BroadcastReceiver() {
             val notification = notificationBuilder
                 .build()
 
-            NotificationManagerCompat.from(context).notify(
-                notificationId,
-                notification
-            )
+            if (NotificationPermissionUtil.canPostNotifications(context)) {
+                NotificationManagerCompat.from(context).notify(
+                    notificationId,
+                    notification
+                )
+            }
         }
     }
 
