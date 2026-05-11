@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1'
+    implementation 'com.github.sherafatpour:uturn-android-ketch:2.1.2'
 }
 ```
 
@@ -54,14 +54,14 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1")
+    implementation("com.github.sherafatpour:uturn-android-ketch:2.1.2")
 }
 ```
 
-این مختصات برای release tag `2.1.1` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `2.1.2` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
-com.github.<GitHubUserOrOrg>.<RepositoryName>:ketch:<Tag>
+com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
 ```
 
 اگر کتابخانه را از همین repository مصرف می‌کنید:
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-2.1.1
+2.1.2
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 2.1.1
+git tag 2.1.2
 git push origin codex/ketch-jitpack-release
-git push origin 2.1.1
+git push origin 2.1.2
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.1
+https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.2
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.

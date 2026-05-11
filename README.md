@@ -45,7 +45,7 @@ Ketch is a Kotlin Android download manager library built on WorkManager, Room, R
 Current release version:
 
 ```text
-2.1.1
+2.1.2
 ```
 
 Add JitPack:
@@ -65,7 +65,7 @@ Add Ketch:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1'
+    implementation 'com.github.sherafatpour:uturn-android-ketch:2.1.2'
 }
 ```
 
@@ -73,14 +73,14 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1")
+    implementation("com.github.sherafatpour:uturn-android-ketch:2.1.2")
 }
 ```
 
-JitPack builds this repository from the release tag `2.1.1`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `2.1.2`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
-com.github.<GitHubUserOrOrg>.<RepositoryName>:ketch:<Tag>
+com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
 ```
 
 When developing from this repository:
@@ -98,7 +98,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1
+com.github.sherafatpour:uturn-android-ketch:2.1.2
 ```
 
 Release checklist:
@@ -106,15 +106,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 2.1.1
+git tag 2.1.2
 git push origin codex/ketch-jitpack-release
-git push origin 2.1.1
+git push origin 2.1.2
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.1
+https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.2
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -125,9 +125,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `ketch-2.1.1.aar`
-- `ketch-2.1.1.pom`
-- `ketch-2.1.1-sources.jar`
+- `uturn-android-ketch-2.1.2.aar`
+- `uturn-android-ketch-2.1.2.pom`
+- `uturn-android-ketch-2.1.2-sources.jar`
 
 ## Quick Start
 

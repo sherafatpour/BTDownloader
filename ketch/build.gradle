@@ -38,9 +38,9 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
 
-                groupId = project.findProperty('GROUP') ?: 'com.github.sherafatpour.uturn-android-ketch'
-                artifactId = project.findProperty('POM_ARTIFACT_ID') ?: 'ketch'
-                version = project.findProperty('VERSION_NAME') ?: '2.1.1'
+                groupId = project.findProperty('GROUP') ?: 'com.github.sherafatpour'
+                artifactId = project.findProperty('POM_ARTIFACT_ID') ?: 'uturn-android-ketch'
+                version = project.findProperty('VERSION_NAME') ?: '2.1.2'
 
                 pom {
                     name = 'Ketch'

@@ -6,6 +6,6 @@ plugins {
 }
 
 allprojects {
-    group = findProperty('GROUP') ?: 'com.github.sherafatpour.uturn-android-ketch'
-    version = findProperty('VERSION_NAME') ?: '2.1.1'
+    group = findProperty('GROUP') ?: 'com.github.sherafatpour'
+    version = findProperty('VERSION_NAME') ?: '2.1.2'
 }
