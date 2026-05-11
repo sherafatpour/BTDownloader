@@ -38,14 +38,14 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
 
-                groupId = project.findProperty('GROUP') ?: 'com.github.BluetileTeam.uturn-android-ketch'
+                groupId = project.findProperty('GROUP') ?: 'com.github.sherafatpour.uturn-android-ketch'
                 artifactId = project.findProperty('POM_ARTIFACT_ID') ?: 'ketch'
-                version = project.findProperty('VERSION_NAME') ?: '2.1.0'
+                version = project.findProperty('VERSION_NAME') ?: '2.1.1'
 
                 pom {
                     name = 'Ketch'
                     description = 'Android download manager library built on WorkManager, Room, Retrofit, and Flow.'
-                    url = 'https://github.com/BluetileTeam/uturn-android-ketch'
+                    url = 'https://github.com/sherafatpour/uturn-android-ketch'
                     licenses {
                         license {
                             name = 'The Apache License, Version 2.0'
@@ -54,14 +54,14 @@ afterEvaluate {
                     }
                     developers {
                         developer {
-                            id = 'BluetileTeam'
-                            name = 'BluetileTeam'
+                            id = 'sherafatpour'
+                            name = 'sherafatpour'
                         }
                     }
                     scm {
-                        connection = 'scm:git:git://github.com/BluetileTeam/uturn-android-ketch.git'
-                        developerConnection = 'scm:git:ssh://github.com/BluetileTeam/uturn-android-ketch.git'
-                        url = 'https://github.com/BluetileTeam/uturn-android-ketch'
+                        connection = 'scm:git:git://github.com/sherafatpour/uturn-android-ketch.git'
+                        developerConnection = 'scm:git:ssh://github.com/sherafatpour/uturn-android-ketch.git'
+                        url = 'https://github.com/sherafatpour/uturn-android-ketch'
                     }
                 }
             }

@@ -1,6 +1,6 @@
 # Ketch
 
-[![](https://jitpack.io/v/BluetileTeam/uturn-android-ketch.svg)](https://jitpack.io/#BluetileTeam/uturn-android-ketch)
+[![](https://jitpack.io/v/sherafatpour/uturn-android-ketch.svg)](https://jitpack.io/#sherafatpour/uturn-android-ketch)
 [![](https://androidweekly.net/issues/issue-622/badge)](https://androidweekly.net/issues/issue-622)
 
 Ketch is a Kotlin Android download manager library built on WorkManager, Room, Retrofit, and Flow. It is designed for app-owned download destinations: the consuming app decides permissions, SAF, MediaStore, and UI; Ketch handles durable background execution, queueing, pause/resume, retry, notifications, and observable state.
@@ -45,7 +45,7 @@ Ketch is a Kotlin Android download manager library built on WorkManager, Room, R
 Current release version:
 
 ```text
-2.1.0
+2.1.1
 ```
 
 Add JitPack:
@@ -65,7 +65,7 @@ Add Ketch:
 
 ```groovy
 dependencies {
-    implementation 'com.github.BluetileTeam.uturn-android-ketch:ketch:2.1.0'
+    implementation 'com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1'
 }
 ```
 
@@ -73,11 +73,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.BluetileTeam.uturn-android-ketch:ketch:2.1.0")
+    implementation("com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1")
 }
 ```
 
-JitPack builds this repository from the release tag `2.1.0`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `2.1.1`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>.<RepositoryName>:ketch:<Tag>
@@ -98,7 +98,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.BluetileTeam.uturn-android-ketch:ketch:2.1.0
+com.github.sherafatpour.uturn-android-ketch:ketch:2.1.1
 ```
 
 Release checklist:
@@ -106,15 +106,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 2.1.0
+git tag 2.1.1
 git push origin codex/ketch-jitpack-release
-git push origin 2.1.0
+git push origin 2.1.1
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#BluetileTeam/uturn-android-ketch/2.1.0
+https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.1
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -125,9 +125,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `ketch-2.1.0.aar`
-- `ketch-2.1.0.pom`
-- `ketch-2.1.0-sources.jar`
+- `ketch-2.1.1.aar`
+- `ketch-2.1.1.pom`
+- `ketch-2.1.1-sources.jar`
 
 ## Quick Start
 
