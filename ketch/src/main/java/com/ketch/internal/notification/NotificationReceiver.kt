@@ -208,23 +208,23 @@ internal class NotificationReceiver : BroadcastReceiver() {
             // add retry and cancel button for failed download
             if (intent.action == NotificationConst.ACTION_DOWNLOAD_FAILED) {
                 notificationBuilder = notificationBuilder.addAction(
-                    -1,
+                    notificationSmallIcon,
                     NotificationConst.RETRY_BUTTON_TEXT,
                     pendingIntentRetry
                 )
                     .setProgress(DownloadConst.MAX_VALUE_PROGRESS, currentProgress, false)
-                    .addAction(-1, NotificationConst.CANCEL_BUTTON_TEXT, pendingIntentCancel)
+                    .addAction(notificationSmallIcon, NotificationConst.CANCEL_BUTTON_TEXT, pendingIntentCancel)
                     .setSubText("$currentProgress%")
             }
             // add resume and cancel button for paused download
             if (intent.action == NotificationConst.ACTION_DOWNLOAD_PAUSED) {
                 notificationBuilder = notificationBuilder.addAction(
-                    -1,
+                    notificationSmallIcon,
                     NotificationConst.RESUME_BUTTON_TEXT,
                     pendingIntentResume
                 )
                     .setProgress(DownloadConst.MAX_VALUE_PROGRESS, currentProgress, false)
-                    .addAction(-1, NotificationConst.CANCEL_BUTTON_TEXT, pendingIntentCancel)
+                    .addAction(notificationSmallIcon, NotificationConst.CANCEL_BUTTON_TEXT, pendingIntentCancel)
                     .setSubText("$currentProgress%")
             }
 

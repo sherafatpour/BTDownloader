@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
@@ -156,8 +157,16 @@ internal class DownloadNotificationManager(
                     .setLocalOnly(true)
                     .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
-                    .addAction(-1, NotificationConst.PAUSE_BUTTON_TEXT, pendingIntentPause)
-                    .addAction(-1, NotificationConst.CANCEL_BUTTON_TEXT, pendingIntentCancel)
+                    .addAction(
+                        notificationConfig.smallIcon,
+                        NotificationConst.PAUSE_BUTTON_TEXT,
+                        pendingIntentPause
+                    )
+                    .addAction(
+                        notificationConfig.smallIcon,
+                        NotificationConst.CANCEL_BUTTON_TEXT,
+                        pendingIntentCancel
+                    )
                     .setDeleteIntent(pendingIntentDismiss)
                     .build(),
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -359,9 +368,22 @@ internal class DownloadNotificationManager(
     }
 
     private fun canPostNotifications(): Boolean {
-        return notificationConfig.enabled &&
-            notificationConfig.smallIcon != NotificationConst.DEFAULT_VALUE_NOTIFICATION_SMALL_ICON &&
-            NotificationPermissionUtil.canPostNotifications(context)
+        if (!notificationConfig.enabled) {
+            Log.d(NotificationConst.LOG_TAG, "Skipping notification because NotificationConfig.enabled is false.")
+            return false
+        }
+
+        if (notificationConfig.smallIcon == NotificationConst.DEFAULT_VALUE_NOTIFICATION_SMALL_ICON) {
+            Log.w(NotificationConst.LOG_TAG, "Skipping notification because NotificationConfig.smallIcon is not set.")
+            return false
+        }
+
+        if (!NotificationPermissionUtil.canPostNotifications(context)) {
+            Log.w(NotificationConst.LOG_TAG, "Skipping notification because notification permission or app notifications are disabled.")
+            return false
+        }
+
+        return true
     }
 
 }

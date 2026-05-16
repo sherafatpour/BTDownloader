@@ -34,8 +34,8 @@ Ketch is a Kotlin Android download manager library built on WorkManager, Room, R
 | Min SDK | 23 |
 | Compile SDK | 36 |
 | Target SDK sample | 36 |
-| Gradle | 9.2.1 |
-| Android Gradle Plugin | 9.0.1 |
+| Gradle | 9.4.1 |
+| Android Gradle Plugin | 9.2.1 |
 | WorkManager | 2.11.2 |
 | Room | 2.8.4 |
 | Retrofit | 3.0.0 |
@@ -332,6 +332,8 @@ ketch = Ketch.builder()
 Notification actions support pause, cancel, resume, retry, and terminal status updates.
 
 Ketch checks `POST_NOTIFICATIONS` on Android 13+ and skips notification posting when permission or app notifications are disabled. The consuming app still owns requesting the permission from the user.
+
+Use a real monochrome status-bar drawable for `smallIcon`; do not pass an adaptive launcher icon or launcher foreground asset. If a notification is skipped or Android rejects the foreground notification, Ketch writes the reason to logcat with the `KetchNotification` tag while the download continues.
 
 Initialize Ketch in `Application.onCreate()` before notification actions are used. Android may deliver notification broadcasts after process recreation, and the singleton should be rebuilt with the same app-level config.
 

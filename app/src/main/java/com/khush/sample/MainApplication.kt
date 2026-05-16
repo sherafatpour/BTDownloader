@@ -13,7 +13,7 @@ class MainApplication: Application() {
         ketch = Ketch.builder().setNotificationConfig(
             config = NotificationConfig(
                 enabled = true,
-                smallIcon = R.drawable.ic_launcher_foreground
+                smallIcon = R.drawable.ic_stat_download
             )
         ).enableLogs(true).build(this)
     }

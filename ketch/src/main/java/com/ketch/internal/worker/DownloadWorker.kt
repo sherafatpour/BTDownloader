@@ -1,6 +1,7 @@
 package com.ketch.internal.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
@@ -11,6 +12,7 @@ import com.ketch.internal.download.DownloadTask
 import com.ketch.internal.download.ApiResponseHeaderChecker
 import com.ketch.internal.network.RetrofitInstance
 import com.ketch.internal.notification.DownloadNotificationManager
+import com.ketch.internal.utils.NotificationConst
 import com.ketch.internal.utils.DownloadConst
 import com.ketch.internal.utils.ExceptionConst
 import com.ketch.internal.utils.FileUtil
@@ -268,6 +270,8 @@ internal class DownloadWorker(
         if (foregroundInfo == null) return
         runCatching {
             setForeground(foregroundInfo)
+        }.onFailure {
+            Log.w(NotificationConst.LOG_TAG, "Unable to show foreground download notification.", it)
         }
     }
 

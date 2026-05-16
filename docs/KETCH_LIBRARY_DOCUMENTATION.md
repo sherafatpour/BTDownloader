@@ -8,8 +8,8 @@
 
 | بخش | نسخه فعلی |
 | --- | --- |
-| Gradle wrapper | `9.2.1` |
-| Android Gradle Plugin | `9.0.1` |
+| Gradle wrapper | `9.4.1` |
+| Android Gradle Plugin | `9.2.1` |
 | Kotlin Android support | built-in در AGP 9 |
 | KSP | `2.3.6` |
 | Compile SDK | `36` |
@@ -233,9 +233,11 @@ NotificationConfig(
 )
 ```
 
-اگر `enabled = true` باشد، `smallIcon` باید یک drawable معتبر باشد. notificationها برای progress، pause، cancel، failed و success ساخته می‌شوند.
+اگر `enabled = true` باشد، `smallIcon` باید یک drawable معتبر، تک‌رنگ و مناسب status bar باشد. از adaptive launcher icon یا launcher foreground برای notification استفاده نکنید. notificationها برای progress، pause، cancel، failed و success ساخته می‌شوند.
 
 Ketch قبل از ارسال notification، permission `POST_NOTIFICATIONS` در Android 13+ و فعال بودن notificationهای اپ را بررسی می‌کند. درخواست permission همچنان مسئولیت اپلیکیشن مصرف‌کننده است. برای اینکه actionهای notification بعد از process recreation هم config درست داشته باشند، Ketch را در `Application.onCreate()` با config اصلی برنامه initialize کنید.
+
+اگر notification نمایش داده نشود، logcat را با tag `KetchNotification` بررسی کنید. کتابخانه در صورت نبود permission، خاموش بودن notificationهای اپ، تنظیم نشدن `smallIcon`، یا رد شدن foreground notification توسط Android دلیل را log می‌کند و خود دانلود را متوقف نمی‌کند.
 
 ### Logger
 
