@@ -8,8 +8,8 @@
 
 | بخش | نسخه فعلی |
 | --- | --- |
-| Gradle wrapper | `9.4.1` |
-| Android Gradle Plugin | `9.2.1` |
+| Gradle wrapper | `9.2.1` |
+| Android Gradle Plugin | `9.0.0` |
 | Kotlin Android support | built-in در AGP 9 |
 | KSP | `2.3.6` |
 | Compile SDK | `36` |
@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:uturn-android-ketch:2.1.3'
+    implementation 'com.github.sherafatpour:uturn-android-ketch:2.1.4'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:uturn-android-ketch:2.1.3")
+    implementation("com.github.sherafatpour:uturn-android-ketch:2.1.4")
 }
 ```
 
-این مختصات برای release tag `2.1.3` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `2.1.4` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-2.1.3
+2.1.4
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 2.1.3
+git tag 2.1.4
 git push origin codex/ketch-jitpack-release
-git push origin 2.1.3
+git push origin 2.1.4
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.3
+https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.4
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
