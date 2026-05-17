@@ -42,7 +42,7 @@ Expected result: `BUILD SUCCESSFUL` with no project deprecation warnings.
 ## Release
 
 - Release version is stored in `gradle.properties` as `VERSION_NAME`.
-- JitPack coordinates for this repository are `com.github.sherafatpour:BTDownloader:<tag>`.
+- JitPack coordinates for this repository are `com.github.sherafatpour:uturn-android-ketch:<tag>`.
 - `:ketch` owns the Maven publication named `release`.
 - `jitpack.yml` runs `./gradlew :ketch:publishReleasePublicationToMavenLocal -x test`.
 - Before tagging a release, verify:
