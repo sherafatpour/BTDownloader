@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:uturn-android-ketch:2.2.1'
+    implementation 'com.github.sherafatpour:BTDownloader:1.0.0'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:uturn-android-ketch:2.2.1")
+    implementation("com.github.sherafatpour:BTDownloader:1.0.0")
 }
 ```
 
-این مختصات برای release tag `2.2.1` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.0.0` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-2.2.1
+1.0.0
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,26 +96,26 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 2.2.1
+git tag 1.0.0
 git push origin codex/ketch-jitpack-release
-git push origin 2.2.1
+git push origin 1.0.0
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/uturn-android-ketch/2.2.1
+https://jitpack.io/#sherafatpour/BTDownloader/1.0.0
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
 
 ## راه‌اندازی سریع
 
-در `Application` یا جایی با طول عمر مناسب، یک instance بسازید. `BTDownloader` entry point جدید کتابخانه است و implementation singleton قبلی `Ketch` را برای سازگاری نگه می‌دارد. context به `applicationContext` تبدیل می‌شود.
+در `Application` یا جایی با طول عمر مناسب، یک instance بسازید. `BTDownloader` entry point جدید کتابخانه است و implementation singleton کتابخانه را مدیریت می‌کند. context به `applicationContext` تبدیل می‌شود.
 
 ```kotlin
 class MainApplication : Application() {
-    lateinit var ketch: Ketch
+    lateinit var ketch: BTDownloader
 
     override fun onCreate() {
         super.onCreate()
@@ -144,13 +144,13 @@ val id = ketch.download(
     headers = hashMapOf("Authorization" to "Bearer token"),
     priority = DownloadPriority.HIGH,
     constraints = DownloadConstraints(
-        networkType = KetchNetworkType.UNMETERED,
+        networkType = BTDownloaderNetworkType.UNMETERED,
         requiresBatteryNotLow = true
     ),
     retryPolicy = RetryPolicy(
         maxRetries = 5,
         backoffDelayInMs = 15_000L,
-        backoffPolicy = KetchBackoffPolicy.EXPONENTIAL
+        backoffPolicy = BTDownloaderBackoffPolicy.EXPONENTIAL
     )
 )
 ```
@@ -197,7 +197,7 @@ data class DownloadConfig(
 
 ```kotlin
 DownloadConstraints(
-    networkType = KetchNetworkType.CONNECTED,
+    networkType = BTDownloaderNetworkType.CONNECTED,
     requiresCharging = false,
     requiresBatteryNotLow = false,
     requiresStorageNotLow = false
@@ -212,7 +212,7 @@ DownloadConstraints(
 RetryPolicy(
     maxRetries = 3,
     backoffDelayInMs = 10_000L,
-    backoffPolicy = KetchBackoffPolicy.EXPONENTIAL
+    backoffPolicy = BTDownloaderBackoffPolicy.EXPONENTIAL
 )
 ```
 
@@ -387,7 +387,7 @@ flowchart LR
 
 ### اجزای اصلی
 
-- `BTDownloader`: entry point عمومی کتابخانه. کلاس `Ketch` برای سازگاری قبلی باقی مانده است.
+- `BTDownloader`: entry point عمومی کتابخانه. `BTDownloader` entry point اصلی کتابخانه است.
 - `DownloadManager`: ثبت رکوردها، enqueue/cancel WorkManager، و اجرای عملیات pause/resume/retry/clear.
 - `DownloadWorker`: اجرای واقعی دانلود در background، به‌روزرسانی database، progress، notification و نتیجه نهایی.
 - `DownloadTask`: خواندن stream از شبکه، نوشتن فایل موقت و محاسبه progress/speed.

@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace = 'com.khush.sample'
+    namespace = 'com.sherafatpour.bluetile.sample'
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.khush.sample"
+        applicationId = "com.sherafatpour.bluetile.sample"
         minSdk = 23
         targetSdk = 36
         versionCode = 1

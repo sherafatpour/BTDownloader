@@ -13,20 +13,20 @@ This repository contains an Android download manager library (`:ketch`) and a sa
 - Avoid `GlobalScope`. Worker cleanup that must survive cancellation should use `NonCancellable`.
 - Do not add UI dependencies to `:ketch`. Keep `appcompat`, `material`, and `constraintlayout` in `:app` unless library code truly needs them.
 - Notification code must check `POST_NOTIFICATIONS`/notification-enabled state before posting. The consuming app owns requesting permission.
-- Notification actions rebuild `Ketch` through the singleton if the process was recreated; keep README/docs explicit that apps should initialize Ketch in `Application.onCreate()`.
+- Notification actions rebuild `BTDownloader` through the singleton if the process was recreated; keep README/docs explicit that apps should initialize BTDownloader in `Application.onCreate()`.
 - `HEAD`/ETag checks are best effort. Never fail the main download only because a CDN rejects or times out on `HEAD`.
 - Do not require `Content-Length`; chunked and signed CDN responses must stream successfully with unknown total length.
 - Keep default network headers CDN-friendly, but allow caller headers to override them.
 
 ## Important Files
 
-- Public API: `ketch/src/main/java/com/ketch/Ketch.kt`
-- Public models: `ketch/src/main/java/com/ketch/*Config.kt`, `DownloadPriority.kt`, `DownloadConstraints.kt`, `RetryPolicy.kt`
-- Scheduler: `ketch/src/main/java/com/ketch/internal/download/DownloadManager.kt`
-- Worker: `ketch/src/main/java/com/ketch/internal/worker/DownloadWorker.kt`
-- Stream writer: `ketch/src/main/java/com/ketch/internal/download/DownloadTask.kt`
-- Database: `ketch/src/main/java/com/ketch/internal/database/*`
-- File behavior: `ketch/src/main/java/com/ketch/internal/utils/FileUtil.kt`
+- Public API: `ketch/src/main/java/com/sherafatpour/bluetile/BTDownloader.kt`
+- Public models: `ketch/src/main/java/com/sherafatpour/bluetile/*Config.kt`, `DownloadPriority.kt`, `DownloadConstraints.kt`, `RetryPolicy.kt`
+- Scheduler: `ketch/src/main/java/com/sherafatpour/bluetile/internal/download/DownloadManager.kt`
+- Worker: `ketch/src/main/java/com/sherafatpour/bluetile/internal/worker/DownloadWorker.kt`
+- Stream writer: `ketch/src/main/java/com/sherafatpour/bluetile/internal/download/DownloadTask.kt`
+- Database: `ketch/src/main/java/com/sherafatpour/bluetile/internal/database/*`
+- File behavior: `ketch/src/main/java/com/sherafatpour/bluetile/internal/utils/FileUtil.kt`
 - Full docs: `docs/KETCH_LIBRARY_DOCUMENTATION.md`
 
 ## Verification
@@ -42,7 +42,7 @@ Expected result: `BUILD SUCCESSFUL` with no project deprecation warnings.
 ## Release
 
 - Release version is stored in `gradle.properties` as `VERSION_NAME`.
-- JitPack coordinates for this repository are `com.github.sherafatpour:uturn-android-ketch:<tag>`.
+- JitPack coordinates for this repository are `com.github.sherafatpour:BTDownloader:<tag>`.
 - `:ketch` owns the Maven publication named `release`.
 - `jitpack.yml` runs `./gradlew :ketch:publishReleasePublicationToMavenLocal -x test`.
 - Before tagging a release, verify:

@@ -1,6 +1,6 @@
 # BTDownloader
 
-[![](https://jitpack.io/v/sherafatpour/uturn-android-ketch.svg)](https://jitpack.io/#sherafatpour/uturn-android-ketch)
+[![](https://jitpack.io/v/sherafatpour/BTDownloader.svg)](https://jitpack.io/#sherafatpour/BTDownloader)
 [![](https://androidweekly.net/issues/issue-622/badge)](https://androidweekly.net/issues/issue-622)
 
 BTDownloader is a Kotlin Android download manager library built on WorkManager, Room, Retrofit, and Flow. It is designed for app-owned download destinations: the consuming app decides permissions, SAF, MediaStore, and UI; BTDownloader handles durable background execution, queueing, pause/resume, retry, notifications, and observable state.
@@ -41,7 +41,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-2.2.1
+1.0.0
 ```
 
 Add JitPack:
@@ -61,7 +61,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:uturn-android-ketch:2.2.1'
+    implementation 'com.github.sherafatpour:BTDownloader:1.0.0'
 }
 ```
 
@@ -69,11 +69,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:uturn-android-ketch:2.2.1")
+    implementation("com.github.sherafatpour:BTDownloader:1.0.0")
 }
 ```
 
-JitPack builds this repository from the release tag `2.2.1`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.0.0`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -91,12 +91,12 @@ dependencies {
 
 This repository is configured for JitPack through `jitpack.yml` and the `:ketch` `release` Maven publication.
 
-`BTDownloader` is the preferred entry point. The original `Ketch` class and `com.ketch` package remain available for source and binary compatibility.
+`BTDownloader` is the preferred entry point. The public package is `com.sherafatpour.bluetile`, and `BTDownloader` is the main entry point.
 
 Release coordinates:
 
 ```text
-com.github.sherafatpour:uturn-android-ketch:2.2.1
+com.github.sherafatpour:BTDownloader:1.0.0
 ```
 
 Release checklist:
@@ -104,15 +104,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 2.2.1
+git tag 1.0.0
 git push origin codex/ketch-jitpack-release
-git push origin 2.2.1
+git push origin 1.0.0
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/uturn-android-ketch/2.2.1
+https://jitpack.io/#sherafatpour/BTDownloader/1.0.0
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -123,9 +123,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `uturn-android-ketch-2.2.1.aar`
-- `uturn-android-ketch-2.2.1.pom`
-- `uturn-android-ketch-2.2.1-sources.jar`
+- `BTDownloader-1.0.0.aar`
+- `BTDownloader-1.0.0.pom`
+- `BTDownloader-1.0.0-sources.jar`
 
 ## Quick Start
 
@@ -133,7 +133,7 @@ Create a singleton instance in your application layer:
 
 ```kotlin
 class MainApplication : Application() {
-    lateinit var ketch: Ketch
+    lateinit var ketch: BTDownloader
 
     override fun onCreate() {
         super.onCreate()
@@ -187,7 +187,7 @@ val id = ketch.download(
     headers = hashMapOf("Authorization" to "Bearer $token"),
     priority = DownloadPriority.HIGH,
     constraints = DownloadConstraints(
-        networkType = KetchNetworkType.UNMETERED,
+        networkType = BTDownloaderNetworkType.UNMETERED,
         requiresCharging = false,
         requiresBatteryNotLow = true,
         requiresStorageNotLow = false
@@ -195,7 +195,7 @@ val id = ketch.download(
     retryPolicy = RetryPolicy(
         maxRetries = 5,
         backoffDelayInMs = 15_000L,
-        backoffPolicy = KetchBackoffPolicy.EXPONENTIAL
+        backoffPolicy = BTDownloaderBackoffPolicy.EXPONENTIAL
     )
 )
 ```
@@ -208,7 +208,7 @@ BTDownloader stores every request in Room first. It then schedules pending work 
 2. `DownloadPriority`
 3. `timeQueued`
 
-The default concurrent limit is `3`. If five files are queued and the limit is `3`, only three WorkManager jobs are active at a time. When a slot finishes, Ketch schedules the next highest-priority pending item.
+The default concurrent limit is `3`. If five files are queued and the limit is `3`, only three WorkManager jobs are active at a time. When a slot finishes, BTDownloader schedules the next highest-priority pending item.
 
 ## Controls
 
