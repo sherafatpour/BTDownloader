@@ -5,10 +5,6 @@
 
 BTDownloader is a Kotlin Android download manager library built on WorkManager, Room, Retrofit, and Flow. It is designed for app-owned download destinations: the consuming app decides permissions, SAF, MediaStore, and UI; BTDownloader handles durable background execution, queueing, pause/resume, retry, notifications, and observable state.
 
-<p align="center">
-  <img width="950" src="https://raw.githubusercontent.com/khushpanchal/Ketch/master/assets/Ketch_logo.png" >
-</p>
-
 ## Features
 
 - Background downloads with `WorkManager`
