@@ -89,6 +89,7 @@ class Ketch private constructor(
         @Volatile
         private var ketchInstance: Ketch? = null
 
+        @JvmStatic
         fun builder() = Builder()
 
         class Builder {
