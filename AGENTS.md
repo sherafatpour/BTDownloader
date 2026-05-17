@@ -42,7 +42,7 @@ Expected result: `BUILD SUCCESSFUL` with no project deprecation warnings.
 ## Release
 
 - Release version is stored in `gradle.properties` as `VERSION_NAME`.
-- JitPack coordinates for this repository are `com.github.sherafatpour:uturn-android-ketch:<tag>`.
+- JitPack coordinates for this repository are `com.github.sherafatpour:BTDownloader:<tag>`.
 - `:ketch` owns the Maven publication named `release`.
 - `jitpack.yml` runs `./gradlew :ketch:publishReleasePublicationToMavenLocal -x test`.
 - Before tagging a release, verify:
@@ -65,4 +65,4 @@ When adding or changing public behavior:
 - The library is path-based today. If URI-based writing is added later, it should be a separate destination abstraction, not a SAF picker inside `:ketch`.
 - `Room` currently uses destructive migration. Production-safe schema migrations are a future hardening task.
 - Retry is delegated to WorkManager via `Result.retry()` and WorkManager backoff.
-- `QUEUED` can mean internal Ketch queue or WorkManager waiting for constraints/backoff.
+- `QUEUED` can mean internal BTDownloader queue or WorkManager waiting for constraints/backoff.

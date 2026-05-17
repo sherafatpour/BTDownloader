@@ -126,7 +126,7 @@ internal class DownloadTask(
         headers.putIfAbsent(DownloadConst.ACCEPT_ENCODING_HEADER, "identity")
         headers.putIfAbsent(
             DownloadConst.USER_AGENT_HEADER,
-            "Mozilla/5.0 (Linux; Android) KetchDownloader/1.0"
+            "Mozilla/5.0 (Linux; Android) BTDownloader/1.0"
         )
     }
 

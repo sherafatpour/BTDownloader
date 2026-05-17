@@ -39,11 +39,11 @@ afterEvaluate {
                 from components.release
 
                 groupId = project.findProperty('GROUP') ?: 'com.github.sherafatpour'
-                artifactId = project.findProperty('POM_ARTIFACT_ID') ?: 'uturn-android-ketch'
-                version = project.findProperty('VERSION_NAME') ?: '2.1.4'
+                artifactId = project.findProperty('POM_ARTIFACT_ID') ?: 'BTDownloader'
+                version = project.findProperty('VERSION_NAME') ?: '2.2.0'
 
                 pom {
-                    name = 'Ketch'
+                    name = 'BTDownloader'
                     description = 'Android download manager library built on WorkManager, Room, Retrofit, and Flow.'
                     url = 'https://github.com/sherafatpour/uturn-android-ketch'
                     licenses {

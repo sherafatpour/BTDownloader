@@ -1,9 +1,9 @@
-# Ketch
+# BTDownloader
 
 [![](https://jitpack.io/v/sherafatpour/uturn-android-ketch.svg)](https://jitpack.io/#sherafatpour/uturn-android-ketch)
 [![](https://androidweekly.net/issues/issue-622/badge)](https://androidweekly.net/issues/issue-622)
 
-Ketch is a Kotlin Android download manager library built on WorkManager, Room, Retrofit, and Flow. It is designed for app-owned download destinations: the consuming app decides permissions, SAF, MediaStore, and UI; Ketch handles durable background execution, queueing, pause/resume, retry, notifications, and observable state.
+BTDownloader is a Kotlin Android download manager library built on WorkManager, Room, Retrofit, and Flow. It is designed for app-owned download destinations: the consuming app decides permissions, SAF, MediaStore, and UI; BTDownloader handles durable background execution, queueing, pause/resume, retry, notifications, and observable state.
 
 <p align="center">
   <img width="950" src="https://raw.githubusercontent.com/khushpanchal/Ketch/master/assets/Ketch_logo.png" >
@@ -45,7 +45,7 @@ Ketch is a Kotlin Android download manager library built on WorkManager, Room, R
 Current release version:
 
 ```text
-2.1.4
+2.2.0
 ```
 
 Add JitPack:
@@ -61,11 +61,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Add Ketch:
+Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:uturn-android-ketch:2.1.4'
+    implementation 'com.github.sherafatpour:BTDownloader:2.2.0'
 }
 ```
 
@@ -73,11 +73,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:uturn-android-ketch:2.1.4")
+    implementation("com.github.sherafatpour:BTDownloader:2.2.0")
 }
 ```
 
-JitPack builds this repository from the release tag `2.1.4`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `2.2.0`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -95,10 +95,12 @@ dependencies {
 
 This repository is configured for JitPack through `jitpack.yml` and the `:ketch` `release` Maven publication.
 
+`BTDownloader` is the preferred entry point. The original `Ketch` class and `com.ketch` package remain available for source and binary compatibility.
+
 Release coordinates:
 
 ```text
-com.github.sherafatpour:uturn-android-ketch:2.1.4
+com.github.sherafatpour:BTDownloader:2.2.0
 ```
 
 Release checklist:
@@ -106,15 +108,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 2.1.4
+git tag 2.2.0
 git push origin codex/ketch-jitpack-release
-git push origin 2.1.4
+git push origin 2.2.0
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.4
+https://jitpack.io/#sherafatpour/uturn-android-ketch/2.2.0
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -125,9 +127,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `uturn-android-ketch-2.1.4.aar`
-- `uturn-android-ketch-2.1.4.pom`
-- `uturn-android-ketch-2.1.4-sources.jar`
+- `BTDownloader-2.2.0.aar`
+- `BTDownloader-2.2.0.pom`
+- `BTDownloader-2.2.0-sources.jar`
 
 ## Quick Start
 
@@ -139,7 +141,7 @@ class MainApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        ketch = Ketch.builder()
+        ketch = BTDownloader.builder()
             .setDownloadConfig(
                 DownloadConfig(
                     connectTimeOutInMs = 20_000L,
@@ -204,7 +206,7 @@ val id = ketch.download(
 
 ## Queue And Priority
 
-Ketch stores every request in Room first. It then schedules pending work according to:
+BTDownloader stores every request in Room first. It then schedules pending work according to:
 
 1. `DownloadConfig.maxConcurrentDownloads`
 2. `DownloadPriority`
@@ -250,17 +252,17 @@ QUEUED -> SCHEDULED -> STARTED -> PROGRESS -> SUCCESS
                                       +-> PAUSED / CANCELLED / FAILED
 ```
 
-`QUEUED` means waiting for a local Ketch queue slot. `SCHEDULED` means Ketch has handed the job to WorkManager and it may be waiting for constraints/backoff or worker execution. If a download stays on `SCHEDULED`, check network constraints, WorkManager state, storage permissions, and whether the URL host is reachable.
+`QUEUED` means waiting for a local BTDownloader queue slot. `SCHEDULED` means BTDownloader has handed the job to WorkManager and it may be waiting for constraints/backoff or worker execution. If a download stays on `SCHEDULED`, check network constraints, WorkManager state, storage permissions, and whether the URL host is reachable.
 
 ## Temporary File Behavior
 
-Ketch does not expose a real final extension before the download is complete. If you request:
+BTDownloader does not expose a real final extension before the download is complete. If you request:
 
 ```kotlin
 fileName = "movie.mp4"
 ```
 
-Ketch writes:
+BTDownloader writes:
 
 ```text
 movie.bt
@@ -276,7 +278,7 @@ Cancel and clear operations remove both the final file and the temporary `.bt` f
 
 ## Signed URLs And CDN Links
 
-Ketch supports long query-string URLs such as CDN signed links:
+BTDownloader supports long query-string URLs such as CDN signed links:
 
 ```kotlin
 ketch.download(
@@ -294,12 +296,12 @@ For maximum compatibility:
 
 - Always pass an explicit `fileName` for signed URLs.
 - Refresh expired signed URLs in the app layer.
-- Ketch treats `HEAD`/ETag checks as best effort; if a CDN rejects or times out on `HEAD`, Ketch still attempts the actual `GET`.
+- BTDownloader treats `HEAD`/ETag checks as best effort; if a CDN rejects or times out on `HEAD`, BTDownloader still attempts the actual `GET`.
 - Unknown `Content-Length` is supported, so chunked/CDN responses can still stream to disk.
 
 ## Storage Policy
 
-Ketch intentionally does not own SAF, MediaStore UI, or permission flows. The consuming application must decide and prepare the writable destination.
+BTDownloader intentionally does not own SAF, MediaStore UI, or permission flows. The consuming application must decide and prepare the writable destination.
 
 Recommended patterns:
 
@@ -319,7 +321,7 @@ Add notification permission for Android 13+:
 Enable notifications:
 
 ```kotlin
-ketch = Ketch.builder()
+ketch = BTDownloader.builder()
     .setNotificationConfig(
         NotificationConfig(
             enabled = true,
@@ -331,11 +333,11 @@ ketch = Ketch.builder()
 
 Notification actions support pause, cancel, resume, retry, and terminal status updates.
 
-Ketch checks `POST_NOTIFICATIONS` on Android 13+ and skips notification posting when permission or app notifications are disabled. The consuming app still owns requesting the permission from the user.
+BTDownloader checks `POST_NOTIFICATIONS` on Android 13+ and skips notification posting when permission or app notifications are disabled. The consuming app still owns requesting the permission from the user.
 
-Use a real monochrome status-bar drawable for `smallIcon`; do not pass an adaptive launcher icon or launcher foreground asset. If a notification is skipped or Android rejects the foreground notification, Ketch writes the reason to logcat with the `KetchNotification` tag while the download continues.
+Use a real monochrome status-bar drawable for `smallIcon`; do not pass an adaptive launcher icon or launcher foreground asset. If a notification is skipped or Android rejects the foreground notification, BTDownloader writes the reason to logcat with the `BTDownloaderNotification` tag while the download continues.
 
-Initialize Ketch in `Application.onCreate()` before notification actions are used. Android may deliver notification broadcasts after process recreation, and the singleton should be rebuilt with the same app-level config.
+Initialize BTDownloader in `Application.onCreate()` before notification actions are used. Android may deliver notification broadcasts after process recreation, and the singleton should be rebuilt with the same app-level config.
 
 ## Content Metadata Helpers
 
@@ -350,8 +352,8 @@ These helpers use `HEAD` requests through the same network stack.
 
 ```mermaid
 flowchart LR
-    App["App"] --> Ketch["Ketch API"]
-    Ketch --> Manager["DownloadManager"]
+    App["App"] --> BTDownloader["BTDownloader API"]
+    BTDownloader --> Manager["DownloadManager"]
     Manager --> Room["Room"]
     Manager --> WorkManager["WorkManager"]
     WorkManager --> Worker["DownloadWorker"]
@@ -385,7 +387,7 @@ Full check used for this repository:
 
 ## More Documentation
 
-- [Full Ketch library documentation](docs/KETCH_LIBRARY_DOCUMENTATION.md)
+- [Full BTDownloader library documentation](docs/KETCH_LIBRARY_DOCUMENTATION.md)
 - [Agent guide](AGENTS.md)
 
 ## License

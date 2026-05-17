@@ -1,11 +1,11 @@
 package com.ketch.internal.utils
 
 internal object NotificationConst {
-    const val LOG_TAG = "KetchNotification"
+    const val LOG_TAG = "BTDownloaderNotification"
     const val NOTIFICATION_CHANNEL_ID = "download_channel"
     const val DEFAULT_VALUE_NOTIFICATION_ENABLED = false
     const val KEY_NOTIFICATION_CHANNEL_NAME = "key_notification_channel_name"
-    const val DEFAULT_VALUE_NOTIFICATION_CHANNEL_NAME = "File Download"
+    const val DEFAULT_VALUE_NOTIFICATION_CHANNEL_NAME = "BTDownloader"
     const val KEY_NOTIFICATION_CHANNEL_DESCRIPTION = "key_notification_channel_description"
     const val DEFAULT_VALUE_NOTIFICATION_CHANNEL_DESCRIPTION = "Notify file download status"
     const val KEY_NOTIFICATION_CHANNEL_IMPORTANCE = "key_notification_channel_importance"

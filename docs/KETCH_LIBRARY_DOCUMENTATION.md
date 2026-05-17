@@ -1,6 +1,6 @@
-# مستند کتابخانه Ketch
+# مستند کتابخانه BTDownloader
 
-این سند وضعیت فعلی ماژول `ketch` را بعد از بروزرسانی ابزارها و dependencyها توضیح می‌دهد. Ketch یک کتابخانه دانلود فایل برای Android است که دانلودها را با `WorkManager` اجرا می‌کند، وضعیت را در `Room` نگه می‌دارد، شبکه را با `Retrofit/OkHttp` انجام می‌دهد و نتیجه را با `Flow` در اختیار برنامه قرار می‌دهد.
+این سند وضعیت فعلی ماژول `ketch` را بعد از بروزرسانی ابزارها و dependencyها توضیح می‌دهد. BTDownloader یک کتابخانه دانلود فایل برای Android است که دانلودها را با `WorkManager` اجرا می‌کند، وضعیت را در `Room` نگه می‌دارد، شبکه را با `Retrofit/OkHttp` انجام می‌دهد و نتیجه را با `Flow` در اختیار برنامه قرار می‌دهد.
 
 ## وضعیت بروزرسانی
 
@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:uturn-android-ketch:2.1.4'
+    implementation 'com.github.sherafatpour:BTDownloader:2.2.0'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:uturn-android-ketch:2.1.4")
+    implementation("com.github.sherafatpour:BTDownloader:2.2.0")
 }
 ```
 
-این مختصات برای release tag `2.1.4` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `2.2.0` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-2.1.4
+2.2.0
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,22 +96,22 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 2.1.4
+git tag 2.2.0
 git push origin codex/ketch-jitpack-release
-git push origin 2.1.4
+git push origin 2.2.0
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/uturn-android-ketch/2.1.4
+https://jitpack.io/#sherafatpour/uturn-android-ketch/2.2.0
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
 
 ## راه‌اندازی سریع
 
-در `Application` یا جایی با طول عمر مناسب، یک instance بسازید. `Ketch` singleton است و context را به `applicationContext` تبدیل می‌کند.
+در `Application` یا جایی با طول عمر مناسب، یک instance بسازید. `BTDownloader` entry point جدید کتابخانه است و implementation singleton قبلی `Ketch` را برای سازگاری نگه می‌دارد. context به `applicationContext` تبدیل می‌شود.
 
 ```kotlin
 class MainApplication : Application() {
@@ -119,7 +119,7 @@ class MainApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        ketch = Ketch.builder()
+        ketch = BTDownloader.builder()
             .setDownloadConfig(
                 DownloadConfig(
                     connectTimeOutInMs = 20_000L,
@@ -172,7 +172,7 @@ viewLifecycleOwner.lifecycleScope.launch {
 خود کتابخانه مسیر ذخیره‌سازی را از caller می‌گیرد، پس برنامه باید قبل از دانلود مطمئن شود که به مسیر انتخاب‌شده دسترسی دارد.
 
 - برای مسیرهای app-specific معمولا نیاز به permission جداگانه نیست.
-- اگر برنامه به Storage Access Framework نیاز دارد، انتخاب document/tree، گرفتن permission، persist کردن URI permission و تبدیل آن به مقصد قابل نوشتن باید در خود اپلیکیشن مصرف‌کننده انجام شود. Ketch عمدا UI یا permission flow مربوط به SAF را مدیریت نمی‌کند تا در پروژه‌های مختلف قابل استفاده بماند.
+- اگر برنامه به Storage Access Framework نیاز دارد، انتخاب document/tree، گرفتن permission، persist کردن URI permission و تبدیل آن به مقصد قابل نوشتن باید در خود اپلیکیشن مصرف‌کننده انجام شود. BTDownloader عمدا UI یا permission flow مربوط به SAF را مدیریت نمی‌کند تا در پروژه‌های مختلف قابل استفاده بماند.
 - برای notification در Android 13 به بعد، permission زیر را در manifest بگذارید و runtime request انجام دهید:
 
 ```xml
@@ -235,9 +235,9 @@ NotificationConfig(
 
 اگر `enabled = true` باشد، `smallIcon` باید یک drawable معتبر، تک‌رنگ و مناسب status bar باشد. از adaptive launcher icon یا launcher foreground برای notification استفاده نکنید. notificationها برای progress، pause، cancel، failed و success ساخته می‌شوند.
 
-Ketch قبل از ارسال notification، permission `POST_NOTIFICATIONS` در Android 13+ و فعال بودن notificationهای اپ را بررسی می‌کند. درخواست permission همچنان مسئولیت اپلیکیشن مصرف‌کننده است. برای اینکه actionهای notification بعد از process recreation هم config درست داشته باشند، Ketch را در `Application.onCreate()` با config اصلی برنامه initialize کنید.
+BTDownloader قبل از ارسال notification، permission `POST_NOTIFICATIONS` در Android 13+ و فعال بودن notificationهای اپ را بررسی می‌کند. درخواست permission همچنان مسئولیت اپلیکیشن مصرف‌کننده است. برای اینکه actionهای notification بعد از process recreation هم config درست داشته باشند، BTDownloader را در `Application.onCreate()` با config اصلی برنامه initialize کنید.
 
-اگر notification نمایش داده نشود، logcat را با tag `KetchNotification` بررسی کنید. کتابخانه در صورت نبود permission، خاموش بودن notificationهای اپ، تنظیم نشدن `smallIcon`، یا رد شدن foreground notification توسط Android دلیل را log می‌کند و خود دانلود را متوقف نمی‌کند.
+اگر notification نمایش داده نشود، logcat را با tag `BTDownloaderNotification` بررسی کنید. کتابخانه در صورت نبود permission، خاموش بودن notificationهای اپ، تنظیم نشدن `smallIcon`، یا رد شدن foreground notification توسط Android دلیل را log می‌کند و خود دانلود را متوقف نمی‌کند.
 
 ### Logger
 
@@ -250,7 +250,7 @@ class AppLogger : Logger {
     }
 }
 
-val ketch = Ketch.builder()
+val ketch = BTDownloader.builder()
     .setLogger(AppLogger())
     .build(context)
 ```
@@ -275,7 +275,7 @@ fun download(
 ): Int
 ```
 
-یک `DownloadRequest` داخلی می‌سازد و آن را در پایگاه داده ثبت می‌کند. Ketch فقط وقتی slot آزاد داشته باشد آن را وارد WorkManager می‌کند. مقدار برگشتی `id` دانلود است. این `id` از ترکیب `url`، `path` و `fileName` ساخته می‌شود.
+یک `DownloadRequest` داخلی می‌سازد و آن را در پایگاه داده ثبت می‌کند. BTDownloader فقط وقتی slot آزاد داشته باشد آن را وارد WorkManager می‌کند. مقدار برگشتی `id` دانلود است. این `id` از ترکیب `url`، `path` و `fileName` ساخته می‌شود.
 
 ### صف، priority و concurrency
 
@@ -285,7 +285,7 @@ fun download(
 2. مقدار `DownloadPriority`
 3. زمان ثبت `timeQueued`
 
-اگر سقف همزمانی `3` باشد و پنج دانلود ثبت شود، فقط سه job وارد WorkManager می‌شوند. با تمام شدن، fail شدن یا cancel شدن هر job، Ketch slot بعدی را از صف فعال می‌کند.
+اگر سقف همزمانی `3` باشد و پنج دانلود ثبت شود، فقط سه job وارد WorkManager می‌شوند. با تمام شدن، fail شدن یا cancel شدن هر job، BTDownloader slot بعدی را از صف فعال می‌کند.
 
 ### کنترل دانلودها
 
@@ -360,7 +360,7 @@ QUEUED -> SCHEDULED -> STARTED -> PROGRESS -> SUCCESS
                                       +-> PAUSED / CANCELLED / FAILED
 ```
 
-- `QUEUED`: رکورد ساخته شده و در صف داخلی Ketch منتظر slot آزاد است.
+- `QUEUED`: رکورد ساخته شده و در صف داخلی BTDownloader منتظر slot آزاد است.
 - `SCHEDULED`: دانلود به WorkManager تحویل شده و ممکن است منتظر constraints/backoff یا شروع اجرای worker باشد. اگر طولانی در این وضعیت ماند، constraints، وضعیت WorkManager، permission مسیر ذخیره‌سازی و reachable بودن host را بررسی کنید.
 - `STARTED`: worker شروع شده و اندازه فایل مشخص شده است.
 - `PROGRESS`: دانلود در جریان است.
@@ -373,8 +373,8 @@ QUEUED -> SCHEDULED -> STARTED -> PROGRESS -> SUCCESS
 
 ```mermaid
 flowchart LR
-    App["App / UI"] --> Ketch["Ketch public API"]
-    Ketch --> Manager["DownloadManager"]
+    App["App / UI"] --> BTDownloader["BTDownloader public API"]
+    BTDownloader --> Manager["DownloadManager"]
     Manager --> Room["Room: DownloadDao"]
     Manager --> WorkManager["WorkManager"]
     WorkManager --> Worker["DownloadWorker"]
@@ -387,7 +387,7 @@ flowchart LR
 
 ### اجزای اصلی
 
-- `Ketch`: facade عمومی کتابخانه و نقطه ورود برنامه.
+- `BTDownloader`: entry point عمومی کتابخانه. کلاس `Ketch` برای سازگاری قبلی باقی مانده است.
 - `DownloadManager`: ثبت رکوردها، enqueue/cancel WorkManager، و اجرای عملیات pause/resume/retry/clear.
 - `DownloadWorker`: اجرای واقعی دانلود در background، به‌روزرسانی database، progress، notification و نتیجه نهایی.
 - `DownloadTask`: خواندن stream از شبکه، نوشتن فایل موقت و محاسبه progress/speed.
@@ -398,7 +398,7 @@ flowchart LR
 
 ## رفتار resume، فایل موقت و ETag
 
-Ketch برای resume از header زیر استفاده می‌کند:
+BTDownloader برای resume از header زیر استفاده می‌کند:
 
 ```text
 Range: bytes=<current-file-length>-
