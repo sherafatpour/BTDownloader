@@ -40,5 +40,7 @@ data class DownloadModel(
     val failureReason: String,
     val priority: DownloadPriority = DownloadPriority.NORMAL,
     val runAttemptCount: Int = 0,
-    val maxRetries: Int = 0
+    val maxRetries: Int = 0,
+    val errorType: DownloadError = DownloadError.NONE,
+    val checksum: DownloadChecksum? = null
 )

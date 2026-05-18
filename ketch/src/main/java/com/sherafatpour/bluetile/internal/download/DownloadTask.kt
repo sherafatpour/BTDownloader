@@ -3,6 +3,7 @@ package com.sherafatpour.bluetile.internal.download
 import com.sherafatpour.bluetile.internal.network.DownloadService
 import com.sherafatpour.bluetile.internal.utils.DownloadConst
 import com.sherafatpour.bluetile.internal.utils.FileUtil
+import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -22,6 +23,7 @@ internal class DownloadTask(
 
     suspend fun download(
         headers: MutableMap<String, String> = mutableMapOf(),
+        speedLimitBytesPerSecond: Long = 0L,
         onStart: suspend (Long) -> Unit,
         onProgress: suspend (Long, Long, Float) -> Unit
     ): Long {
@@ -95,6 +97,11 @@ internal class DownloadTask(
                     outputStream.write(buffer, 0, bytes)
                     progressBytes += bytes
                     tempBytes += bytes
+                    throttleIfNeeded(
+                        speedLimitBytesPerSecond = speedLimitBytesPerSecond,
+                        bytesWrittenInWindow = tempBytes,
+                        windowStartedAt = progressInvokeTime
+                    )
                     bytes = inputStream.read(buffer)
                     val finalTime = System.currentTimeMillis()
                     if (finalTime - progressInvokeTime >= TIME_TO_TRIGGER_PROGRESS) {
@@ -133,5 +140,19 @@ internal class DownloadTask(
     private fun shouldRestartDownload(responseCode: Int, rangeStart: Long): Boolean {
         return rangeStart > 0L &&
             (responseCode == DownloadConst.HTTP_RANGE_NOT_SATISFY || responseCode == DownloadConst.HTTP_OK)
+    }
+
+    private suspend fun throttleIfNeeded(
+        speedLimitBytesPerSecond: Long,
+        bytesWrittenInWindow: Long,
+        windowStartedAt: Long
+    ) {
+        if (speedLimitBytesPerSecond <= 0L || bytesWrittenInWindow <= 0L) return
+        val elapsedMs = System.currentTimeMillis() - windowStartedAt
+        val expectedElapsedMs = (bytesWrittenInWindow * 1000L) / speedLimitBytesPerSecond
+        val sleepMs = expectedElapsedMs - elapsedMs
+        if (sleepMs > 0L) {
+            delay(sleepMs.coerceAtMost(250L))
+        }
     }
 }

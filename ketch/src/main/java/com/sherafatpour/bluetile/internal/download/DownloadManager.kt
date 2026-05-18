@@ -14,6 +14,10 @@ import com.sherafatpour.bluetile.DownloadConstraints
 import com.sherafatpour.bluetile.DownloadModel
 import com.sherafatpour.bluetile.BTDownloaderBackoffPolicy
 import com.sherafatpour.bluetile.BTDownloaderNetworkType
+import com.sherafatpour.bluetile.DownloadChecksum
+import com.sherafatpour.bluetile.DownloadChecksumAlgorithm
+import com.sherafatpour.bluetile.DownloadError
+import com.sherafatpour.bluetile.DownloadPriority
 import com.sherafatpour.bluetile.Logger
 import com.sherafatpour.bluetile.NotificationConfig
 import com.sherafatpour.bluetile.RetryPolicy
@@ -22,6 +26,7 @@ import com.sherafatpour.bluetile.internal.database.DownloadDao
 import com.sherafatpour.bluetile.internal.database.DownloadEntity
 import com.sherafatpour.bluetile.internal.notification.DownloadNotificationManager
 import com.sherafatpour.bluetile.internal.utils.DownloadConst
+import com.sherafatpour.bluetile.internal.utils.FileUtil
 import com.sherafatpour.bluetile.internal.utils.FileUtil.deleteDownloadFiles
 import com.sherafatpour.bluetile.internal.utils.UserAction
 import com.sherafatpour.bluetile.internal.utils.WorkUtil
@@ -51,6 +56,7 @@ internal class DownloadManager(
     private val notificationConfig: NotificationConfig,
     private val logger: Logger
 ) {
+    private val preemptedByManualStart = mutableMapOf<Int, Int>()
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         logger.log(
@@ -123,6 +129,7 @@ internal class DownloadManager(
                                         msg = "Download Success. FileName: ${downloadEntity.fileName}, " +
                                                 "ID: ${downloadEntity.id}"
                                     )
+                                    resumePreemptedIfAny(downloadEntity.id)
                                 }
                                 scheduleQueuedDownloads()
                             }
@@ -135,6 +142,7 @@ internal class DownloadManager(
                                                 "ID: ${downloadEntity.id}, " +
                                                 "Reason: ${downloadEntity.failureReason}"
                                     )
+                                    resumePreemptedIfAny(downloadEntity.id)
                                 }
                                 scheduleQueuedDownloads()
                             }
@@ -165,6 +173,7 @@ internal class DownloadManager(
                                         msg = "Download Cancelled. FileName: ${downloadEntity.fileName}, " +
                                                 "ID: ${downloadEntity.id}"
                                     )
+                                    resumePreemptedIfAny(downloadEntity.id)
                                 }
                                 scheduleQueuedDownloads()
                             }
@@ -177,8 +186,22 @@ internal class DownloadManager(
     }
 
     private suspend fun download(downloadRequest: DownloadRequest) {
+        val effectiveRequest = if (downloadRequest.autoRenameIfExists) {
+            val resolvedFileName = FileUtil.resolveAvailableFileName(downloadRequest.path, downloadRequest.fileName)
+            if (resolvedFileName == downloadRequest.fileName) {
+                downloadRequest
+            } else {
+                downloadRequest.copy(
+                    fileName = resolvedFileName,
+                    id = FileUtil.getUniqueId(downloadRequest.url, downloadRequest.path, resolvedFileName)
+                )
+            }
+        } else {
+            downloadRequest
+        }
+
         // Checks if download id already present in database
-        val existingEntity = downloadDao.find(downloadRequest.id)
+        val existingEntity = downloadDao.find(effectiveRequest.id)
         if (existingEntity != null) {
             val shouldQueueAgain = !existingEntity.status.isActiveDownloadStatus()
             val shouldResetProgress = shouldQueueAgain &&
@@ -191,14 +214,14 @@ internal class DownloadManager(
 
             downloadDao.update(
                 existingEntity.copy(
-                    url = downloadRequest.url,
-                    path = downloadRequest.path,
-                    fileName = downloadRequest.fileName,
-                    tag = downloadRequest.tag,
-                    headersJson = WorkUtil.hashMapToJson(downloadRequest.headers),
-                    notificationParameter = downloadRequest.notificationParameter,
-                    notificationTitle = downloadRequest.notificationTitle,
-                    metaData = downloadRequest.metaData,
+                    url = effectiveRequest.url,
+                    path = effectiveRequest.path,
+                    fileName = effectiveRequest.fileName,
+                    tag = effectiveRequest.tag,
+                    headersJson = WorkUtil.hashMapToJson(effectiveRequest.headers),
+                    notificationParameter = effectiveRequest.notificationParameter,
+                    notificationTitle = effectiveRequest.notificationTitle,
+                    metaData = effectiveRequest.metaData,
                     userAction = UserAction.START.toString(),
                     status = if (shouldQueueAgain) Status.QUEUED.toString() else existingEntity.status,
                     uuid = if (shouldQueueAgain) "" else existingEntity.uuid,
@@ -208,45 +231,56 @@ internal class DownloadManager(
                     eTag = if (shouldResetProgress) "" else existingEntity.eTag,
                     failureReason = if (shouldQueueAgain) "" else existingEntity.failureReason,
                     runAttemptCount = if (shouldQueueAgain) 0 else existingEntity.runAttemptCount,
-                    priority = downloadRequest.priority.value,
-                    networkType = downloadRequest.constraints.networkType.toString(),
-                    requiresCharging = downloadRequest.constraints.requiresCharging,
-                    requiresBatteryNotLow = downloadRequest.constraints.requiresBatteryNotLow,
-                    requiresStorageNotLow = downloadRequest.constraints.requiresStorageNotLow,
-                    maxRetries = downloadRequest.retryPolicy.maxRetries,
-                    backoffDelayInMs = downloadRequest.retryPolicy.backoffDelayInMs,
-                    backoffPolicy = downloadRequest.retryPolicy.backoffPolicy.toString(),
+                    priority = effectiveRequest.priority.value,
+                    networkType = effectiveRequest.constraints.networkType.toString(),
+                    requiresCharging = effectiveRequest.constraints.requiresCharging,
+                    requiresBatteryNotLow = effectiveRequest.constraints.requiresBatteryNotLow,
+                    requiresStorageNotLow = effectiveRequest.constraints.requiresStorageNotLow,
+                    maxRetries = effectiveRequest.retryPolicy.maxRetries,
+                    backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
+                    backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
+                    checksumAlgorithm = effectiveRequest.checksum?.algorithm?.name.orEmpty(),
+                    checksumValue = effectiveRequest.checksum?.value.orEmpty(),
+                    errorType = if (shouldQueueAgain) DownloadError.NONE.toString() else existingEntity.errorType,
+                    autoRenameIfExists = effectiveRequest.autoRenameIfExists,
                     lastModified = System.currentTimeMillis()
                 )
             )
         } else {
             downloadDao.insert(
                 DownloadEntity(
-                    url = downloadRequest.url,
-                    path = downloadRequest.path,
-                    fileName = downloadRequest.fileName,
-                    tag = downloadRequest.tag,
-                    id = downloadRequest.id,
-                    headersJson = WorkUtil.hashMapToJson(downloadRequest.headers),
-                    notificationParameter = downloadRequest.notificationParameter,
-                    notificationTitle = downloadRequest.notificationTitle,
+                    url = effectiveRequest.url,
+                    path = effectiveRequest.path,
+                    fileName = effectiveRequest.fileName,
+                    tag = effectiveRequest.tag,
+                    id = effectiveRequest.id,
+                    headersJson = WorkUtil.hashMapToJson(effectiveRequest.headers),
+                    notificationParameter = effectiveRequest.notificationParameter,
+                    notificationTitle = effectiveRequest.notificationTitle,
                     timeQueued = System.currentTimeMillis(),
                     status = Status.QUEUED.toString(),
                     uuid = "",
                     lastModified = System.currentTimeMillis(),
                     userAction = UserAction.START.toString(),
-                    metaData = downloadRequest.metaData,
-                    priority = downloadRequest.priority.value,
-                    networkType = downloadRequest.constraints.networkType.toString(),
-                    requiresCharging = downloadRequest.constraints.requiresCharging,
-                    requiresBatteryNotLow = downloadRequest.constraints.requiresBatteryNotLow,
-                    requiresStorageNotLow = downloadRequest.constraints.requiresStorageNotLow,
-                    maxRetries = downloadRequest.retryPolicy.maxRetries,
-                    backoffDelayInMs = downloadRequest.retryPolicy.backoffDelayInMs,
-                    backoffPolicy = downloadRequest.retryPolicy.backoffPolicy.toString()
+                    metaData = effectiveRequest.metaData,
+                    priority = effectiveRequest.priority.value,
+                    networkType = effectiveRequest.constraints.networkType.toString(),
+                    requiresCharging = effectiveRequest.constraints.requiresCharging,
+                    requiresBatteryNotLow = effectiveRequest.constraints.requiresBatteryNotLow,
+                    requiresStorageNotLow = effectiveRequest.constraints.requiresStorageNotLow,
+                    maxRetries = effectiveRequest.retryPolicy.maxRetries,
+                    backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
+                    backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
+                    checksumAlgorithm = effectiveRequest.checksum?.algorithm?.name.orEmpty(),
+                    checksumValue = effectiveRequest.checksum?.value.orEmpty(),
+                    autoRenameIfExists = effectiveRequest.autoRenameIfExists
                 )
             )
-            deleteDownloadFiles(downloadRequest.path, downloadRequest.fileName)
+            if (!effectiveRequest.autoRenameIfExists) {
+                deleteDownloadFiles(effectiveRequest.path, effectiveRequest.fileName)
+            } else {
+                FileUtil.deleteFileIfExists(effectiveRequest.path, FileUtil.getTempFileName(effectiveRequest.fileName))
+            }
         }
 
         scheduleQueuedDownloads()
@@ -337,8 +371,16 @@ internal class DownloadManager(
                 backoffDelayInMs = backoffDelayInMs,
                 backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == backoffPolicy }
                     ?: BTDownloaderBackoffPolicy.EXPONENTIAL
-            )
+            ),
+            checksum = toChecksum(),
+            autoRenameIfExists = autoRenameIfExists
         )
+
+    private fun DownloadEntity.toChecksum(): DownloadChecksum? {
+        if (checksumAlgorithm.isBlank() || checksumValue.isBlank()) return null
+        val algorithm = DownloadChecksumAlgorithm.entries.find { it.name == checksumAlgorithm } ?: return null
+        return DownloadChecksum(algorithm, checksumValue)
+    }
 
     private fun DownloadConstraints.toWorkConstraints() =
         Constraints.Builder()
@@ -396,7 +438,9 @@ internal class DownloadManager(
                         backoffDelayInMs = downloadEntity.backoffDelayInMs,
                         backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == downloadEntity.backoffPolicy }
                             ?: BTDownloaderBackoffPolicy.EXPONENTIAL
-                    )
+                    ),
+                    checksum = downloadEntity.toChecksum(),
+                    autoRenameIfExists = downloadEntity.autoRenameIfExists
                 )
             )
         }
@@ -485,10 +529,126 @@ internal class DownloadManager(
                         backoffDelayInMs = downloadEntity.backoffDelayInMs,
                         backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == downloadEntity.backoffPolicy }
                             ?: BTDownloaderBackoffPolicy.EXPONENTIAL
-                    )
+                    ),
+                    checksum = downloadEntity.toChecksum(),
+                    autoRenameIfExists = downloadEntity.autoRenameIfExists
                 )
             )
         }
+    }
+
+    private suspend fun setPriority(id: Int, priority: DownloadPriority) {
+        val downloadEntity = downloadDao.find(id) ?: return
+        downloadDao.update(
+            downloadEntity.copy(
+                priority = priority.value,
+                lastModified = System.currentTimeMillis()
+            )
+        )
+        scheduleQueuedDownloads()
+    }
+
+    private suspend fun startNow(id: Int) {
+        val target = downloadDao.find(id) ?: return
+
+        val targetPriority = DownloadPriority.IMMEDIATE
+        if (target.status == Status.STARTED.toString() || target.status == Status.PROGRESS.toString()) {
+            setPriority(id, targetPriority)
+            return
+        }
+
+        val activeDownloads = downloadDao.getAllEntity().filter {
+            it.id != id &&
+                it.uuid.isNotEmpty() &&
+                it.status in listOf(
+                    Status.SCHEDULED.toString(),
+                    Status.STARTED.toString(),
+                    Status.PROGRESS.toString()
+                )
+        }
+
+        val runningCount = activeDownloads.size
+        if (runningCount >= downloadConfig.maxConcurrentDownloads) {
+            pickPreemptionCandidate(activeDownloads)?.let { candidate ->
+                logger.log(
+                    msg = "Manual start preemption: Pausing ID ${candidate.id} to start ID $id now."
+                )
+                preemptedByManualStart[id] = candidate.id
+                pause(candidate.id)
+            }
+        }
+
+        val updatedTarget = downloadDao.find(id) ?: return
+        downloadDao.update(
+            updatedTarget.copy(
+                priority = targetPriority.value,
+                userAction = UserAction.START.toString(),
+                status = if (updatedTarget.status == Status.PAUSED.toString() ||
+                    updatedTarget.status == Status.FAILED.toString()
+                ) {
+                    Status.QUEUED.toString()
+                } else {
+                    updatedTarget.status
+                },
+                uuid = if (updatedTarget.status == Status.PAUSED.toString() ||
+                    updatedTarget.status == Status.FAILED.toString()
+                ) {
+                    ""
+                } else {
+                    updatedTarget.uuid
+                },
+                lastModified = System.currentTimeMillis()
+            )
+        )
+        scheduleQueuedDownloads()
+    }
+
+    private suspend fun resumePreemptedIfAny(manualStartId: Int) {
+        val pausedId = preemptedByManualStart.remove(manualStartId) ?: return
+        val pausedEntity = downloadDao.find(pausedId) ?: return
+        if (pausedEntity.status == Status.PAUSED.toString()) {
+            logger.log(msg = "Resuming preempted download ID $pausedId after manual-start ID $manualStartId.")
+            resume(pausedId)
+        }
+    }
+
+    private fun pickPreemptionCandidate(activeDownloads: List<DownloadEntity>): DownloadEntity? {
+        return activeDownloads.minWithOrNull(
+            compareBy<DownloadEntity> { it.priority }
+                .thenByDescending { progressPercent(it) }
+                .thenByDescending { it.timeQueued }
+        )
+    }
+
+    private fun progressPercent(entity: DownloadEntity): Int {
+        return if (entity.totalBytes > 0L) {
+            ((entity.downloadedBytes * 100L) / entity.totalBytes).toInt()
+        } else {
+            0
+        }
+    }
+
+    private suspend fun cleanupIncompleteDownloads(olderThanMs: Long) {
+        val cutoff = System.currentTimeMillis() - olderThanMs
+        downloadDao.getAllEntity()
+            .filter { entity ->
+                entity.lastModified <= cutoff &&
+                    entity.status in listOf(
+                        Status.QUEUED.toString(),
+                        Status.SCHEDULED.toString(),
+                        Status.STARTED.toString(),
+                        Status.PROGRESS.toString(),
+                        Status.PAUSED.toString(),
+                        Status.FAILED.toString()
+                    )
+            }
+            .forEach { entity ->
+                cancel(entity.id)
+                deleteDownloadFiles(entity.path, entity.fileName)
+                downloadDao.remove(entity.id)
+                removeNotification(context, entity.id)
+                removeNotification(context, entity.id + 1)
+            }
     }
 
     private suspend fun findDownloadEntityFromUUID(uuid: UUID): DownloadEntity? {
@@ -588,6 +748,24 @@ internal class DownloadManager(
             downloadDao.getAllEntity().forEach {
                 retry(it.id)
             }
+        }
+    }
+
+    fun setPriorityAsync(id: Int, priority: DownloadPriority) {
+        scope.launch {
+            setPriority(id, priority)
+        }
+    }
+
+    fun cleanupIncompleteDownloadsAsync(olderThanMs: Long) {
+        scope.launch {
+            cleanupIncompleteDownloads(olderThanMs)
+        }
+    }
+
+    fun startNowAsync(id: Int) {
+        scope.launch {
+            startNow(id)
         }
     }
 

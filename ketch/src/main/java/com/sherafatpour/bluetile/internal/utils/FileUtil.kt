@@ -55,6 +55,46 @@ internal object FileUtil {
         return tempFile.renameTo(finalFile)
     }
 
+    fun resolveAvailableFileName(path: String, fileName: String): String {
+        val directory = File(path)
+        val candidate = File(directory, fileName)
+        if (!candidate.exists() && !File(directory, getTempFileName(fileName)).exists()) return fileName
+
+        val baseName = fileName.substringBeforeLast(".", fileName)
+        val extension = fileName.substringAfterLast(".", "")
+        var index = 1
+        while (true) {
+            val nextName = if (extension.isBlank()) {
+                "$baseName ($index)"
+            } else {
+                "$baseName ($index).$extension"
+            }
+            if (!File(directory, nextName).exists() && !File(directory, getTempFileName(nextName)).exists()) {
+                return nextName
+            }
+            index++
+        }
+    }
+
+    fun hasEnoughFreeSpace(path: String, expectedBytes: Long, bufferBytes: Long): Boolean {
+        if (expectedBytes <= 0L) return true
+        val directory = File(path)
+        return directory.usableSpace >= expectedBytes + bufferBytes
+    }
+
+    fun checksum(path: String, fileName: String, algorithm: String): String {
+        val digest = MessageDigest.getInstance(algorithm)
+        File(path, fileName).inputStream().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var read = input.read(buffer)
+            while (read >= 0) {
+                digest.update(buffer, 0, read)
+                read = input.read(buffer)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
     fun getTempFileName(fileName: String): String {
         return if (fileName.contains(".")) {
             fileName.substringBeforeLast(".") + TEMP_EXTENSION

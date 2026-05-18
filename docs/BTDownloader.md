@@ -115,11 +115,11 @@ https://jitpack.io/#sherafatpour/BTDownloader/1.0.0
 
 ```kotlin
 class MainApplication : Application() {
-    lateinit var ketch: BTDownloader
+    lateinit var btDownload: BTDownloader
 
     override fun onCreate() {
         super.onCreate()
-        ketch = BTDownloader.builder()
+        btDownload = BTDownloader.builder()
             .setDownloadConfig(
                 DownloadConfig(
                     connectTimeOutInMs = 20_000L,
@@ -136,7 +136,7 @@ class MainApplication : Application() {
 شروع دانلود:
 
 ```kotlin
-val id = ketch.download(
+val id = btDownload.download(
     url = url,
     path = downloadDirectory.absolutePath,
     fileName = "video.mp4",
@@ -160,7 +160,7 @@ val id = ketch.download(
 ```kotlin
 viewLifecycleOwner.lifecycleScope.launch {
     repeatOnLifecycle(Lifecycle.State.STARTED) {
-        ketch.observeDownloadById(id).collect { model ->
+        btDownload.observeDownloadById(id).collect { model ->
             render(model.status, model.progress, model.speedInBytePerMs)
         }
     }
@@ -187,11 +187,14 @@ viewLifecycleOwner.lifecycleScope.launch {
 data class DownloadConfig(
     val connectTimeOutInMs: Long = 30_000L,
     val readTimeOutInMs: Long = 30_000L,
-    val maxConcurrentDownloads: Int = 3
+    val maxConcurrentDownloads: Int = 3,
+    val speedLimitBytesPerSecond: Long = 0L,
+    val freeSpaceBufferBytes: Long = 10L * 1024L * 1024L,
+    val incompleteDownloadMaxAgeInMs: Long = 7L * 24L * 60L * 60L * 1000L
 )
 ```
 
-این تنظیمات هنگام ساخت `Retrofit` و `OkHttpClient` و همچنین کنترل سقف دانلودهای همزمان استفاده می‌شود.
+این تنظیمات هنگام ساخت `Retrofit` و `OkHttpClient`، کنترل سقف دانلودهای همزمان، محدودیت سرعت، buffer فضای آزاد و پاک‌سازی دانلودهای ناقص استفاده می‌شود. اگر `speedLimitBytesPerSecond` برابر صفر باشد محدودیت سرعت اعمال نمی‌شود.
 
 ### DownloadConstraints
 
@@ -239,6 +242,47 @@ BTDownloader قبل از ارسال notification، permission `POST_NOTIFICATION
 
 اگر notification نمایش داده نشود، logcat را با tag `BTDownloaderNotification` بررسی کنید. کتابخانه در صورت نبود permission، خاموش بودن notificationهای اپ، تنظیم نشدن `smallIcon`، یا رد شدن foreground notification توسط Android دلیل را log می‌کند و خود دانلود را متوقف نمی‌کند.
 
+نمونه setup پیشنهادی در اپلیکیشن مصرف‌کننده:
+
+```kotlin
+class App : Application() {
+    lateinit var downloader: BTDownloader
+
+    override fun onCreate() {
+        super.onCreate()
+
+        downloader = BTDownloader.builder()
+            .setNotificationConfig(
+                NotificationConfig(
+                    enabled = true,
+                    smallIcon = R.drawable.ic_stat_download
+                )
+            )
+            .enableLogs(true)
+            .build(this)
+    }
+}
+```
+
+اگر notification داخل اپلیکیشن مقصد دیده نمی‌شود، این موارد را چک کنید:
+
+- `NotificationConfig.enabled` حتما `true` باشد. مقدار پیش‌فرض notification خاموش است.
+- `smallIcon` یک drawable معتبر و مناسب status bar باشد. launcher icon، adaptive icon یا foreground launcher icon برای notification مناسب نیست.
+- در Android 13 به بعد، permission `POST_NOTIFICATIONS` در runtime گرفته شده باشد.
+- notificationهای خود اپ در system settings خاموش نشده باشند.
+- نمونه `BTDownloader` در `Application.onCreate()` ساخته شده باشد، نه فقط داخل Activity یا Fragment.
+- logcat را با tag `BTDownloaderNotification` فیلتر کنید؛ کتابخانه دلیل skip شدن notification را همان‌جا می‌نویسد.
+
+نمونه request permission در اپلیکیشن مصرف‌کننده:
+
+```kotlin
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+) {
+    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+}
+```
+
 ### Logger
 
 برای اتصال logهای کتابخانه به سیستم logging برنامه:
@@ -250,7 +294,7 @@ class AppLogger : Logger {
     }
 }
 
-val ketch = BTDownloader.builder()
+val btDownload = BTDownloader.builder()
     .setLogger(AppLogger())
     .build(context)
 ```
@@ -271,11 +315,27 @@ fun download(
     headers: HashMap<String, String> = hashMapOf(),
     priority: DownloadPriority = DownloadPriority.NORMAL,
     constraints: DownloadConstraints = DownloadConstraints(),
-    retryPolicy: RetryPolicy = RetryPolicy()
+    retryPolicy: RetryPolicy = RetryPolicy(),
+    checksum: DownloadChecksum? = null,
+    autoRenameIfExists: Boolean = false
 ): Int
 ```
 
-یک `DownloadRequest` داخلی می‌سازد و آن را در پایگاه داده ثبت می‌کند. BTDownloader فقط وقتی slot آزاد داشته باشد آن را وارد WorkManager می‌کند. مقدار برگشتی `id` دانلود است. این `id` از ترکیب `url`، `path` و `fileName` ساخته می‌شود.
+یک `DownloadRequest` داخلی می‌سازد و آن را در پایگاه داده ثبت می‌کند. BTDownloader فقط وقتی slot آزاد داشته باشد آن را وارد WorkManager می‌کند. مقدار برگشتی `id` دانلود است. این `id` از ترکیب `url`، `path` و `fileName` ساخته می‌شود. اگر `autoRenameIfExists = true` باشد، نام فایل قبل از ساخت id به نام آزاد بعدی مثل `movie (1).mp4` تبدیل می‌شود.
+
+برای checksum:
+
+```kotlin
+btDownload.download(
+    url = url,
+    path = path,
+    fileName = "archive.zip",
+    checksum = DownloadChecksum(
+        algorithm = DownloadChecksumAlgorithm.SHA256,
+        value = "expected-sha256-hex"
+    )
+)
+```
 
 ### صف، priority و concurrency
 
@@ -287,6 +347,14 @@ fun download(
 
 اگر سقف همزمانی `3` باشد و پنج دانلود ثبت شود، فقط سه job وارد WorkManager می‌شوند. با تمام شدن، fail شدن یا cancel شدن هر job، BTDownloader slot بعدی را از صف فعال می‌کند.
 
+برای تغییر priority در runtime:
+
+```kotlin
+btDownload.setPriority(id, DownloadPriority.HIGH)
+```
+
+این تغییر روی دانلودهای در صف و scheduleهای بعدی اثر می‌گذارد؛ worker فعال preempt نمی‌شود.
+
 ### کنترل دانلودها
 
 | عملیات | با id | با tag | همه |
@@ -297,7 +365,21 @@ fun download(
 | Cancel | `cancel(id)` | `cancel(tag)` | `cancelAll()` |
 | Delete db/file | `clearDb(id)` | `clearDb(tag)` | `clearAllDb()` |
 
+برای شروع فوری یک آیتم صف:
+
+```kotlin
+btDownload.startNow(id)
+```
+
+`startNow(id)` اگر slot خالی داشته باشد همان لحظه دانلود را شروع می‌کند. اگر slot پر باشد، یک دانلود فعال با اولویت پایین‌تر pause می‌شود، دانلود دستی شروع می‌شود، و بعد از رسیدن دانلود دستی به وضعیت terminal، دانلود pause‌شده به‌صورت خودکار resume می‌شود.
+
 `clearDb(timeInMillis)` همه رکوردها و فایل‌هایی را پاک می‌کند که `lastModified` آنها برابر یا قدیمی‌تر از timestamp داده‌شده است.
+
+برای پاک‌سازی دانلودهای ناقص قدیمی:
+
+```kotlin
+btDownload.cleanupIncompleteDownloads()
+```
 
 ### مشاهده دانلودها
 
@@ -347,9 +429,11 @@ suspend fun getContentLength(
 | `eTag` | ETag دریافتی از response |
 | `metaData` | داده آزاد برنامه |
 | `failureReason` | پیام خطا در وضعیت failed |
+| `errorType` | دسته‌بندی پایدار خطا مثل `NETWORK`, `STORAGE`, `SERVER`, `CHECKSUM` |
 | `priority` | اولویت زمان‌بندی دانلود |
 | `runAttemptCount` | تعداد تلاش‌های WorkManager برای job فعلی |
 | `maxRetries` | سقف retry خودکار |
+| `checksum` | checksum مورد انتظار، در صورت تعریف شدن |
 
 ## وضعیت‌ها
 

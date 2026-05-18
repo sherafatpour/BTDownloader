@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.sherafatpour.bluetile.DownloadError
 import com.sherafatpour.bluetile.Status
 import com.sherafatpour.bluetile.internal.database.DatabaseInstance
 import com.sherafatpour.bluetile.internal.download.DownloadTask
@@ -21,6 +22,7 @@ import com.sherafatpour.bluetile.internal.utils.WorkUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 import java.io.File
 import java.io.IOException
 
@@ -110,12 +112,22 @@ internal class DownloadWorker(
                 downloadService = downloadService
             ).download(
                 headers = headers,
+                speedLimitBytesPerSecond = downloadConfig.speedLimitBytesPerSecond,
                 onStart = { length ->
+                    if (!FileUtil.hasEnoughFreeSpace(
+                            path = dirPath,
+                            expectedBytes = length,
+                            bufferBytes = downloadConfig.freeSpaceBufferBytes
+                        )
+                    ) {
+                        throw IOException("Not enough free space for $finalFileName")
+                    }
 
                     downloadDao.find(id)?.copy(
                         totalBytes = length,
                         status = Status.STARTED.toString(),
                         failureReason = "",
+                        errorType = DownloadError.NONE.toString(),
                         runAttemptCount = runAttemptCount + 1,
                         lastModified = System.currentTimeMillis()
                     )?.let { downloadDao.update(it) }
@@ -143,6 +155,7 @@ internal class DownloadWorker(
                             speedInBytePerMs = speed,
                             status = Status.PROGRESS.toString(),
                             failureReason = "",
+                            errorType = DownloadError.NONE.toString(),
                             runAttemptCount = runAttemptCount + 1,
                             lastModified = System.currentTimeMillis()
                         )?.let { downloadDao.update(it) }
@@ -173,10 +186,26 @@ internal class DownloadWorker(
                 throw IOException("Failed to rename temporary download file to $finalFileName")
             }
 
+            downloadRequest.checksum?.let { checksum ->
+                val actualChecksum = FileUtil.checksum(
+                    path = dirPath,
+                    fileName = finalFileName,
+                    algorithm = checksum.algorithm.messageDigestName
+                )
+                if (!actualChecksum.equals(checksum.value, ignoreCase = true)) {
+                    FileUtil.deleteFileIfExists(path = dirPath, name = finalFileName)
+                    throw ChecksumMismatchException(
+                        "Checksum mismatch for $finalFileName. Expected ${checksum.value}, got $actualChecksum"
+                    )
+                }
+            }
+
             downloadDao.find(id)?.copy(
                 totalBytes = totalLength,
                 status = Status.SUCCESS.toString(),
                 uuid = "",
+                failureReason = "",
+                errorType = DownloadError.NONE.toString(),
                 lastModified = System.currentTimeMillis()
             )?.let { downloadDao.update(it) }
 
@@ -222,11 +251,12 @@ internal class DownloadWorker(
 
                     val failedEntity = downloadDao.find(id)
                     failedEntity?.copy(
-                        status = if (shouldRetry) Status.SCHEDULED.toString() else Status.FAILED.toString(),
-                        uuid = if (shouldRetry) failedEntity.uuid else "",
-                        failureReason = e.message ?: e::class.java.simpleName,
-                        runAttemptCount = runAttemptCount + 1,
-                        lastModified = System.currentTimeMillis()
+                            status = if (shouldRetry) Status.SCHEDULED.toString() else Status.FAILED.toString(),
+                            uuid = if (shouldRetry) failedEntity.uuid else "",
+                            failureReason = e.message ?: e::class.java.simpleName,
+                            errorType = e.toDownloadError().toString(),
+                            runAttemptCount = runAttemptCount + 1,
+                            lastModified = System.currentTimeMillis()
                     )?.let { downloadDao.update(it) }
                     val downloadEntity = downloadDao.find(id)
                     if (downloadEntity != null && !shouldRetry) {
@@ -255,6 +285,7 @@ internal class DownloadWorker(
         downloadDao.find(id)?.copy(
             status = Status.STARTED.toString(),
             failureReason = "",
+            errorType = DownloadError.NONE.toString(),
             runAttemptCount = runAttemptCount + 1,
             lastModified = System.currentTimeMillis()
         )?.let { downloadDao.update(it) }
@@ -274,5 +305,20 @@ internal class DownloadWorker(
             Log.w(NotificationConst.LOG_TAG, "Unable to show foreground download notification.", it)
         }
     }
+
+    private fun Throwable.toDownloadError(): DownloadError {
+        return when (this) {
+            is ChecksumMismatchException -> DownloadError.CHECKSUM
+            is java.net.SocketTimeoutException,
+            is java.net.UnknownHostException,
+            is java.net.ConnectException -> DownloadError.NETWORK
+            is HttpException -> DownloadError.SERVER
+            is IOException -> DownloadError.STORAGE
+            is CancellationException -> DownloadError.CANCELLED
+            else -> DownloadError.UNKNOWN
+        }
+    }
+
+    private class ChecksumMismatchException(message: String) : IOException(message)
 
 }

@@ -27,11 +27,11 @@ import kotlinx.coroutines.withContext
  * // Sample to initialize the library inside application class
  * class MainApplication : Application() {
  *
- *     lateinit var ketch: BTDownloader
+ *     lateinit var btDownload: BTDownloader
  *
  *     override fun onCreate() {
  *         super.onCreate()
- *         ketch = BTDownloader.builder()
+ *         btDownload = BTDownloader.builder()
  *             .setDownloadConfig(DownloadConfig()) // optional
  *             .setNotificationConfig( // optional, Notification is off by default
  *                 NotificationConfig(
@@ -47,17 +47,17 @@ import kotlinx.coroutines.withContext
  * }
  *
  * // To use the library
- * ketch.download(url, path, fileName) // download
- * ketch.pause(id) // pause download
- * ketch.resume(id) // resume download
- * ketch.retry(id) // retry download
- * ketch.cancel(id) // cancel download
- * ketch.clearDb(id) // clear database and delete file
+ * btDownload.download(url, path, fileName) // download
+ * btDownload.pause(id) // pause download
+ * btDownload.resume(id) // resume download
+ * btDownload.retry(id) // retry download
+ * btDownload.cancel(id) // cancel download
+ * btDownload.clearDb(id) // clear database and delete file
  *
  * // To observe the downloads
  * lifecycleScope.launch {
  *    repeatOnLifecycle(Lifecycle.State.STARTED) {
- *       ketch.observeDownloads().collect { downloadModelList ->
+ *       btDownload.observeDownloads().collect { downloadModelList ->
  *         // take appropriate action with observed list of [DownloadModel]
  *       }
  *    }
@@ -87,7 +87,7 @@ class BTDownloader private constructor(
     companion object {
 
         @Volatile
-        private var ketchInstance: BTDownloader? = null
+        private var btDownloadInstance: BTDownloader? = null
 
         @JvmStatic
         fun builder() = Builder()
@@ -117,15 +117,15 @@ class BTDownloader private constructor(
 
             @Synchronized
             fun build(context: Context): BTDownloader {
-                if (ketchInstance == null) {
-                    ketchInstance = BTDownloader(
+                if (btDownloadInstance == null) {
+                    btDownloadInstance = BTDownloader(
                         context = context.applicationContext,
                         downloadConfig = downloadConfig,
                         notificationConfig = notificationConfig,
                         logger = logger
                     )
                 }
-                return ketchInstance!!
+                return btDownloadInstance!!
             }
         }
     }
@@ -163,17 +163,25 @@ class BTDownloader private constructor(
         headers: HashMap<String, String> = hashMapOf(),
         priority: DownloadPriority = DownloadPriority.NORMAL,
         constraints: DownloadConstraints = DownloadConstraints(),
-        retryPolicy: RetryPolicy = RetryPolicy()
+        retryPolicy: RetryPolicy = RetryPolicy(),
+        checksum: DownloadChecksum? = null,
+        autoRenameIfExists: Boolean = false
     ): Int {
 
         require(url.isNotEmpty() && path.isNotEmpty() && fileName.isNotEmpty()) {
             "Missing ${if (url.isEmpty()) "url" else if (path.isEmpty()) "path" else "fileName"}"
         }
 
+        val resolvedFileName = if (autoRenameIfExists) {
+            FileUtil.resolveAvailableFileName(path, fileName)
+        } else {
+            fileName
+        }
+
         val downloadRequest = DownloadRequest(
             url = url,
             path = path,
-            fileName = fileName,
+            fileName = resolvedFileName,
             tag = tag,
             headers = headers,
             metaData = metaData,
@@ -181,10 +189,49 @@ class BTDownloader private constructor(
             notificationParameter = notificationParameter,
             priority = priority,
             constraints = constraints,
-            retryPolicy = retryPolicy
+            retryPolicy = retryPolicy,
+            checksum = checksum,
+            autoRenameIfExists = autoRenameIfExists
         )
         downloadManager.downloadAsync(downloadRequest)
         return downloadRequest.id
+    }
+
+    /**
+     * Change priority for a queued or future retry download.
+     *
+     * Already-running workers are not preempted; the new priority is applied when the item is
+     * still waiting in BTDownloader's queue or when it is scheduled again.
+     *
+     * @param id Unique Download ID of the download
+     * @param priority New priority used by queue scheduling
+     */
+    fun setPriority(id: Int, priority: DownloadPriority) {
+        downloadManager.setPriorityAsync(id, priority)
+    }
+
+    /**
+     * Start a queued download immediately by prioritizing it.
+     *
+     * If concurrency slots are full, BTDownloader pauses one lower-priority active item and starts
+     * this one first. The preempted item is resumed automatically after this manual-started item
+     * reaches a terminal state.
+     *
+     * @param id Unique Download ID of the queued/paused/failed download
+     */
+    fun startNow(id: Int) {
+        downloadManager.startNowAsync(id)
+    }
+
+    /**
+     * Remove stale temporary `.bt` files and stale unfinished database rows.
+     *
+     * @param olderThanMs Entries older than this age are considered stale.
+     */
+    fun cleanupIncompleteDownloads(
+        olderThanMs: Long = downloadConfig.incompleteDownloadMaxAgeInMs
+    ) {
+        downloadManager.cleanupIncompleteDownloadsAsync(olderThanMs)
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.sherafatpour.bluetile.internal.download
 
 import com.sherafatpour.bluetile.DownloadConstraints
+import com.sherafatpour.bluetile.DownloadChecksum
 import com.sherafatpour.bluetile.DownloadPriority
 import com.sherafatpour.bluetile.RetryPolicy
 import com.sherafatpour.bluetile.internal.utils.FileUtil.getUniqueId
@@ -17,5 +18,7 @@ internal data class DownloadRequest(
     val metaData: String = "",
     val priority: DownloadPriority = DownloadPriority.NORMAL,
     val constraints: DownloadConstraints = DownloadConstraints(),
-    val retryPolicy: RetryPolicy = RetryPolicy()
+    val retryPolicy: RetryPolicy = RetryPolicy(),
+    val checksum: DownloadChecksum? = null,
+    val autoRenameIfExists: Boolean = false
 )

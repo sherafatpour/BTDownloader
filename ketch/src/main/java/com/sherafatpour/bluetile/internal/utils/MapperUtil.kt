@@ -1,6 +1,9 @@
 package com.sherafatpour.bluetile.internal.utils
 
 import com.sherafatpour.bluetile.DownloadModel
+import com.sherafatpour.bluetile.DownloadChecksum
+import com.sherafatpour.bluetile.DownloadChecksumAlgorithm
+import com.sherafatpour.bluetile.DownloadError
 import com.sherafatpour.bluetile.DownloadPriority
 import com.sherafatpour.bluetile.Status
 import com.sherafatpour.bluetile.internal.database.DownloadEntity
@@ -27,5 +30,13 @@ internal fun DownloadEntity.toDownloadModel() =
         notificationParameter = notificationParameter,
         priority = DownloadPriority.entries.find { it.value == priority } ?: DownloadPriority.NORMAL,
         runAttemptCount = runAttemptCount,
-        maxRetries = maxRetries
+        maxRetries = maxRetries,
+        errorType = DownloadError.entries.find { it.name == errorType } ?: DownloadError.UNKNOWN,
+        checksum = checksumAlgorithm.toChecksum(checksumValue)
     )
+
+private fun String.toChecksum(value: String): DownloadChecksum? {
+    if (isBlank() || value.isBlank()) return null
+    val algorithm = DownloadChecksumAlgorithm.entries.find { it.name == this } ?: return null
+    return DownloadChecksum(algorithm, value)
+}

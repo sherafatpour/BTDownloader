@@ -13,8 +13,12 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 - Pause, resume, retry, cancel, and clear by id, tag, or all downloads
 - Queue management with configurable max concurrent downloads
 - Priority scheduling: `LOW`, `NORMAL`, `HIGH`, `IMMEDIATE`
+- Runtime priority updates for queued/future work
 - Per-download constraints: connected, unmetered, not-roaming, charging, battery-not-low, storage-not-low
 - Automatic retry with linear or exponential backoff
+- Optional speed throttling and free-space preflight
+- Optional checksum verification with `MD5` or `SHA256`
+- Optional auto rename when the requested file name already exists
 - HTTP resume support using `Range`
 - Best-effort ETag validation before resume
 - Signed URL and CDN-friendly defaults: browser-like user agent, identity encoding, unknown content length support
@@ -133,16 +137,18 @@ Create a singleton instance in your application layer:
 
 ```kotlin
 class MainApplication : Application() {
-    lateinit var ketch: BTDownloader
+    lateinit var btDownload: BTDownloader
 
     override fun onCreate() {
         super.onCreate()
-        ketch = BTDownloader.builder()
+        btDownload = BTDownloader.builder()
             .setDownloadConfig(
                 DownloadConfig(
                     connectTimeOutInMs = 20_000L,
                     readTimeOutInMs = 20_000L,
-                    maxConcurrentDownloads = 3
+                    maxConcurrentDownloads = 3,
+                    speedLimitBytesPerSecond = 0L,
+                    freeSpaceBufferBytes = 10L * 1024L * 1024L
                 )
             )
             .enableLogs(BuildConfig.DEBUG)
@@ -154,7 +160,7 @@ class MainApplication : Application() {
 Start a download:
 
 ```kotlin
-val id = ketch.download(
+val id = btDownload.download(
     url = "https://example.com/video.mp4",
     path = filesDir.absolutePath,
     fileName = "video.mp4"
@@ -166,7 +172,7 @@ Observe it:
 ```kotlin
 viewLifecycleOwner.lifecycleScope.launch {
     repeatOnLifecycle(Lifecycle.State.STARTED) {
-        ketch.observeDownloadById(id).collect { download ->
+        btDownload.observeDownloadById(id).collect { download ->
             progressBar.progress = download.progress
         }
     }
@@ -176,7 +182,7 @@ viewLifecycleOwner.lifecycleScope.launch {
 ## Advanced Download Options
 
 ```kotlin
-val id = ketch.download(
+val id = btDownload.download(
     url = url,
     path = destinationDir.absolutePath,
     fileName = "movie.mp4",
@@ -196,7 +202,12 @@ val id = ketch.download(
         maxRetries = 5,
         backoffDelayInMs = 15_000L,
         backoffPolicy = BTDownloaderBackoffPolicy.EXPONENTIAL
-    )
+    ),
+    checksum = DownloadChecksum(
+        algorithm = DownloadChecksumAlgorithm.SHA256,
+        value = "expected-sha256-hex"
+    ),
+    autoRenameIfExists = true
 )
 ```
 
@@ -210,32 +221,42 @@ BTDownloader stores every request in Room first. It then schedules pending work 
 
 The default concurrent limit is `3`. If five files are queued and the limit is `3`, only three WorkManager jobs are active at a time. When a slot finishes, BTDownloader schedules the next highest-priority pending item.
 
+Queued priority can be updated later:
+
+```kotlin
+btDownload.setPriority(id, DownloadPriority.HIGH)
+```
+
 ## Controls
 
 ```kotlin
-ketch.pause(id)
-ketch.resume(id)
-ketch.retry(id)
-ketch.cancel(id)
-ketch.clearDb(id)
+btDownload.pause(id)
+btDownload.resume(id)
+btDownload.retry(id)
+btDownload.cancel(id)
+btDownload.clearDb(id)
+btDownload.startNow(id)
 ```
 
 Each command also supports tags or all downloads:
 
 ```kotlin
-ketch.pause("movies")
-ketch.resumeAll()
-ketch.cancelAll()
-ketch.clearAllDb()
+btDownload.pause("movies")
+btDownload.resumeAll()
+btDownload.cancelAll()
+btDownload.clearAllDb()
+btDownload.cleanupIncompleteDownloads()
 ```
+
+`startNow(id)` is a manual-start path: if all slots are full, BTDownloader pauses one lower-priority active download, starts this one first, then resumes the preempted download after this manual-started item reaches a terminal state.
 
 ## Observability
 
 ```kotlin
-ketch.observeDownloads(): Flow<List<DownloadModel>>
-ketch.observeDownloadById(id): Flow<DownloadModel>
-ketch.observeDownloadByTag(tag): Flow<List<DownloadModel>>
-ketch.getAllDownloads(): List<DownloadModel>
+btDownload.observeDownloads(): Flow<List<DownloadModel>>
+btDownload.observeDownloadById(id): Flow<DownloadModel>
+btDownload.observeDownloadByTag(tag): Flow<List<DownloadModel>>
+btDownload.getAllDownloads(): List<DownloadModel>
 ```
 
 `DownloadModel` includes URL, path, file name, tag, id, headers, status, total bytes, progress, speed, ETag, metadata, failure reason, priority, and retry attempt info.
@@ -277,7 +298,7 @@ Cancel and clear operations remove both the final file and the temporary `.bt` f
 BTDownloader supports long query-string URLs such as CDN signed links:
 
 ```kotlin
-ketch.download(
+btDownload.download(
     url = signedUrl,
     path = downloadDir.absolutePath,
     fileName = "video.mp4",
@@ -317,14 +338,22 @@ Add notification permission for Android 13+:
 Enable notifications:
 
 ```kotlin
-ketch = BTDownloader.builder()
-    .setNotificationConfig(
-        NotificationConfig(
-            enabled = true,
-            smallIcon = R.drawable.ic_stat_download
-        )
-    )
-    .build(this)
+class App : Application() {
+    lateinit var downloader: BTDownloader
+
+    override fun onCreate() {
+        super.onCreate()
+
+        downloader = BTDownloader.builder()
+            .setNotificationConfig(
+                NotificationConfig(
+                    enabled = true,
+                    smallIcon = R.drawable.ic_stat_download
+                )
+            )
+            .build(this)
+    }
+}
 ```
 
 Notification actions support pause, cancel, resume, retry, and terminal status updates.
@@ -335,11 +364,30 @@ Use a real monochrome status-bar drawable for `smallIcon`; do not pass an adapti
 
 Initialize BTDownloader in `Application.onCreate()` before notification actions are used. Android may deliver notification broadcasts after process recreation, and the singleton should be rebuilt with the same app-level config.
 
+If notifications do not appear in the consuming app, check these first:
+
+- `NotificationConfig.enabled` is `true`.
+- `smallIcon` is a valid notification drawable, not a launcher/adaptive icon.
+- Android 13+ runtime permission `POST_NOTIFICATIONS` has been granted.
+- App notifications are enabled in system settings.
+- BTDownloader is initialized in `Application.onCreate()`, not only in an Activity or Fragment.
+- Logcat does not show a warning under the `BTDownloaderNotification` tag.
+
+For Android 13+ runtime permission, the app can request it with the normal Android permission flow:
+
+```kotlin
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+) {
+    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+}
+```
+
 ## Content Metadata Helpers
 
 ```kotlin
-val isSame = ketch.isContentValid(url, eTag = knownETag)
-val bytes = ketch.getContentLength(url)
+val isSame = btDownload.isContentValid(url, eTag = knownETag)
+val bytes = btDownload.getContentLength(url)
 ```
 
 These helpers use `HEAD` requests through the same network stack.
@@ -383,7 +431,7 @@ Full check used for this repository:
 
 ## More Documentation
 
-- [Full BTDownloader library documentation](docs/KETCH_LIBRARY_DOCUMENTATION.md)
+- [Full BTDownloader library documentation](docs/BTDownloader.md)
 - [Agent guide](AGENTS.md)
 
 ## License

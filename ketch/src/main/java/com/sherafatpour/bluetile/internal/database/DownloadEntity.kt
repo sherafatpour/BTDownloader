@@ -3,6 +3,7 @@ package com.sherafatpour.bluetile.internal.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.sherafatpour.bluetile.DownloadPriority
+import com.sherafatpour.bluetile.DownloadError
 import com.sherafatpour.bluetile.Status
 import com.sherafatpour.bluetile.BTDownloaderNetworkType
 import com.sherafatpour.bluetile.BTDownloaderBackoffPolicy
@@ -40,5 +41,9 @@ internal data class DownloadEntity(
     var maxRetries: Int = 3,
     var backoffDelayInMs: Long = 10_000L,
     var backoffPolicy: String = BTDownloaderBackoffPolicy.EXPONENTIAL.toString(),
-    var runAttemptCount: Int = 0
+    var runAttemptCount: Int = 0,
+    var checksumAlgorithm: String = "",
+    var checksumValue: String = "",
+    var errorType: String = DownloadError.NONE.toString(),
+    var autoRenameIfExists: Boolean = false
 )

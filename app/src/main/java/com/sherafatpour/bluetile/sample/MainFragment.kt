@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
@@ -36,7 +38,7 @@ class MainFragment : Fragment() {
 
     private lateinit var fragmentMainBinding: FragmentMainBinding
     private lateinit var adapter: FilesAdapter
-    private lateinit var ketch: BTDownloader
+    private lateinit var btDownload: BTDownloader
     private val downloadDir: File by lazy {
         File(requireContext().getExternalFilesDir(null), "btdownloader-downloads").apply {
             mkdirs()
@@ -71,7 +73,7 @@ class MainFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         super.onCreateView(inflater, container, savedInstanceState)
-        ketch = (requireContext().applicationContext as MainApplication).ketch
+        btDownload = (requireContext().applicationContext as MainApplication).btDownload
         fragmentMainBinding = FragmentMainBinding.inflate(inflater)
         return fragmentMainBinding.root
     }
@@ -112,7 +114,7 @@ class MainFragment : Fragment() {
             }
 
             override fun onCancelClick(downloadItem: DownloadModel) {
-                ketch.cancel(downloadItem.id)
+                btDownload.cancel(downloadItem.id)
             }
 
             override fun onDownloadClick(downloadItem: DownloadModel) {
@@ -129,19 +131,23 @@ class MainFragment : Fragment() {
             }
 
             override fun onPauseClick(downloadItem: DownloadModel) {
-                ketch.pause(downloadItem.id)
+                btDownload.pause(downloadItem.id)
             }
 
             override fun onResumeClick(downloadItem: DownloadModel) {
-                ketch.resume(downloadItem.id)
+                btDownload.resume(downloadItem.id)
             }
 
             override fun onRetryClick(downloadItem: DownloadModel) {
-                ketch.retry(downloadItem.id)
+                btDownload.retry(downloadItem.id)
             }
 
             override fun onDeleteClick(downloadItem: DownloadModel) {
-                ketch.clearDb(downloadItem.id)
+                btDownload.clearDb(downloadItem.id)
+            }
+
+            override fun onPrioritySelected(downloadItem: DownloadModel, priority: DownloadPriority) {
+                btDownload.setPriority(downloadItem.id, priority)
             }
         })
         fragmentMainBinding.recyclerView.adapter = adapter
@@ -229,6 +235,44 @@ class MainFragment : Fragment() {
         }
 
         fragmentMainBinding.bt6.text = "Multiple"
+        fragmentMainBinding.bt6.setOnClickListener {
+            listOf(
+                SampleDownloadRequest(
+                    title = "Rabbit sample",
+                    url = "https://raw.githubusercontent.com/mdn/learning-area/main/html/multimedia-and-embedding/video-and-audio-content/rabbit320.mp4",
+                    fileName = "rabbit.mp4",
+                    tag = "Batch",
+                    priority = DownloadPriority.HIGH
+                ),
+                SampleDownloadRequest(
+                    title = "WebP image",
+                    url = "https://www.gstatic.com/webp/gallery/2.jpg",
+                    fileName = "gallery_2.jpg",
+                    tag = "Batch",
+                    priority = DownloadPriority.NORMAL
+                ),
+                SampleDownloadRequest(
+                    title = "Hello PDF",
+                    url = "https://raw.githubusercontent.com/mozilla/pdf.js/master/examples/learning/helloworld.pdf",
+                    fileName = "hello.pdf",
+                    tag = "Batch",
+                    priority = DownloadPriority.LOW
+                )
+            ).forEach(::enqueueDownload)
+        }
+        fragmentMainBinding.pauseAllButton.setOnClickListener {
+            btDownload.pauseAll()
+        }
+        fragmentMainBinding.resumeAllButton.setOnClickListener {
+            btDownload.resumeAll()
+        }
+        fragmentMainBinding.clearCompletedButton.setOnClickListener {
+            viewLifecycleOwner.lifecycleScope.launch {
+                btDownload.getAllDownloads()
+                    .filter { it.status == Status.SUCCESS }
+                    .forEach { btDownload.clearDb(it.id) }
+            }
+        }
         observer()
 
     }
@@ -236,7 +280,7 @@ class MainFragment : Fragment() {
     private fun observer() {
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                ketch.observeDownloads()
+                btDownload.observeDownloads()
                     .collect {
                         adapter.submitList(it)
                     }
@@ -245,7 +289,7 @@ class MainFragment : Fragment() {
     }
 
     private fun enqueueDownload(request: SampleDownloadRequest) {
-        val id = ketch.download(
+        val id = btDownload.download(
             url = request.url,
             path = downloadDir.absolutePath,
             fileName = request.fileName,
@@ -311,6 +355,27 @@ class FilesAdapter(private val listener: FileClickListener) :
                 downloadModel.progress,
                 downloadModel.total
             ) + ", " + Util.getSpeedText(downloadModel.speedInBytePerMs)
+            binding.prioritySpinner.adapter = ArrayAdapter(
+                binding.root.context,
+                android.R.layout.simple_spinner_dropdown_item,
+                DownloadPriority.entries.map { it.name }
+            )
+            binding.prioritySpinner.setSelection(DownloadPriority.entries.indexOf(downloadModel.priority))
+            binding.prioritySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long
+                ) {
+                    val selectedPriority = DownloadPriority.entries[position]
+                    if (selectedPriority != downloadModel.priority) {
+                        listener.onPrioritySelected(downloadModel, selectedPriority)
+                    }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
 
             binding.downloadButton.setOnClickListener {
                 listener.onDownloadClick(downloadModel)
@@ -355,6 +420,7 @@ class FilesAdapter(private val listener: FileClickListener) :
         fun onResumeClick(downloadItem: DownloadModel)
         fun onRetryClick(downloadItem: DownloadModel)
         fun onDeleteClick(downloadItem: DownloadModel)
+        fun onPrioritySelected(downloadItem: DownloadModel, priority: DownloadPriority)
     }
 
 }
