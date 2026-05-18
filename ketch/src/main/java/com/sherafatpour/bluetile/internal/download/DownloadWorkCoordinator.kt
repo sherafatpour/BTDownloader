@@ -190,7 +190,7 @@ internal object DownloadWorkCoordinator {
 
         workManager.enqueueUniqueWork(
             downloadWorkName(downloadEntity.id),
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             downloadWorkRequest
         )
     }

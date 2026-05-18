@@ -46,7 +46,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-1.1.4
+1.1.5
 ```
 
 Add JitPack:
@@ -66,7 +66,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.4'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.5'
 }
 ```
 
@@ -74,11 +74,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.4")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.5")
 }
 ```
 
-JitPack builds this repository from the release tag `1.1.4`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.1.5`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -101,7 +101,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour:BTDownloader:1.1.4
+com.github.sherafatpour:BTDownloader:1.1.5
 ```
 
 Release checklist:
@@ -109,15 +109,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 1.1.4
+git tag 1.1.5
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.4
+git push origin 1.1.5
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.4
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.5
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -128,9 +128,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `BTDownloader-1.1.4.aar`
-- `BTDownloader-1.1.4.pom`
-- `BTDownloader-1.1.4-sources.jar`
+- `BTDownloader-1.1.5.aar`
+- `BTDownloader-1.1.5.pom`
+- `BTDownloader-1.1.5-sources.jar`
 
 ## Quick Start
 
@@ -245,6 +245,8 @@ Scheduled downloads do not consume `DownloadConfig.maxConcurrentDownloads` while
 If several scheduled downloads become due at the same time and all download slots are already full, each due item stays `QUEUED` and its lightweight schedule trigger retries with WorkManager backoff until the item is accepted by the real download queue. This keeps scheduled downloads moving even when the app UI is closed and the next slot opens later.
 
 BTDownloader also keeps a unique queue-drain worker active while pending `QUEUED` downloads remain. This is a safety net for app-closed/background scenarios: when a slot opens after completion, pause, cancel, or failure, the queue is dispatched again even if no screen is observing download state.
+
+When a queued item is accepted for real download work, BTDownloader replaces any stale unfinished WorkManager work with the same download id. This avoids a WorkManager `KEEP` edge case where an old unique work can make a due scheduled download appear queued while the new download worker is ignored.
 
 ## Queue And Priority
 

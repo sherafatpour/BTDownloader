@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.5 - 2026-05-18
+
+### Fixed
+
+- Replaced stale per-download WorkManager work when dispatching a queued download. This prevents due scheduled items from staying in `QUEUED` when an old unfinished unique work with the same download id makes WorkManager ignore the new download request.
+
 ## 1.1.4 - 2026-05-18
 
 ### Fixed

@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.4'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.5'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.4")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.5")
 }
 ```
 
-این مختصات برای release tag `1.1.4` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.5` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.1.4
+1.1.5
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.1.4
+git tag 1.1.5
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.4
+git push origin 1.1.5
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.4
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.5
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
@@ -402,6 +402,8 @@ fun schedule(
 اگر چند دانلود زمان‌بندی‌شده همزمان موعدشان برسد و همه slotها پر باشند، آیتم‌های اضافه در وضعیت `QUEUED` می‌مانند و trigger سبک WorkManager آن‌ها با backoff دوباره تلاش می‌کند تا وقتی که واقعاً وارد صف دانلود فعال شوند. بنابراین حتی وقتی UI اپ بسته است، با آزاد شدن slot بعدی، دانلودهای زمان‌بندی‌شده عقب‌مانده دوباره بررسی و شروع می‌شوند.
 
 علاوه بر trigger هر دانلود زمان‌بندی‌شده، BTDownloader تا وقتی آیتم `QUEUED` باقی مانده باشد یک queue-drain worker یکتا هم فعال نگه می‌دارد. این worker نقش safety net دارد: اگر اپ بسته باشد و بعد از completion، pause، cancel یا failure یک slot آزاد شود، صف دوباره dispatch می‌شود حتی اگر هیچ صفحه‌ای در حال observe کردن state نباشد.
+
+وقتی یک آیتم queued واقعاً برای دانلود پذیرفته می‌شود، BTDownloader هر WorkManager work قدیمی و ناتمام با همان download id را replace می‌کند. این کار جلوی edge case مربوط به `KEEP` را می‌گیرد؛ حالتی که WorkManager می‌تواند به خاطر یک unique work قدیمی، دانلود جدید را نادیده بگیرد و آیتم زمان‌بندی‌شده فقط در صف دیده شود.
 
 نمونه زمان‌بندی برای 30 دقیقه بعد فقط روی Wi-Fi و هنگام شارژ:
 
