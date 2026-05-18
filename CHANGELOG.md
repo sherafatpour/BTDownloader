@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.2 - 2026-05-18
+
+### Fixed
+
+- Changed scheduled downloads so they no longer enter the active queue or consume `maxConcurrentDownloads` before their scheduled time.
+- Added a lightweight `DownloadScheduleWorker` that wakes at the scheduled time, moves the item to `QUEUED`, and lets the normal queue manager start the real download when a slot is available.
+- Moved actual download WorkRequest creation into a shared coordinator so app-open and app-closed queue continuation use the same scheduling path.
+- Updated `DownloadWorker` to schedule the next queued item after terminal completion/failure even when no UI observer is alive.
+
+### Documentation
+
+- Documented the standard scheduled-download flow: `SCHEDULED` until due, then `QUEUED`, then real download when concurrency allows.
+
 ## 1.1.1 - 2026-05-18
 
 ### Fixed

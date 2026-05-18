@@ -46,7 +46,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-1.1.1
+1.1.2
 ```
 
 Add JitPack:
@@ -66,7 +66,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.1'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.2'
 }
 ```
 
@@ -74,11 +74,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.1")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.2")
 }
 ```
 
-JitPack builds this repository from the release tag `1.1.1`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.1.2`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -101,7 +101,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour:BTDownloader:1.1.1
+com.github.sherafatpour:BTDownloader:1.1.2
 ```
 
 Release checklist:
@@ -109,15 +109,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 1.1.1
+git tag 1.1.2
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.1
+git push origin 1.1.2
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.1
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.2
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -128,9 +128,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `BTDownloader-1.1.1.aar`
-- `BTDownloader-1.1.1.pom`
-- `BTDownloader-1.1.1-sources.jar`
+- `BTDownloader-1.1.2.aar`
+- `BTDownloader-1.1.2.pom`
+- `BTDownloader-1.1.2-sources.jar`
 
 ## Quick Start
 
@@ -223,7 +223,7 @@ val id = btDownload.download(
 
 ## Scheduled Downloads
 
-Use `schedule(...)` when a download should start at or after a specific time. The request is persisted in Room and handed to WorkManager with an initial delay, so it can still run after the app process is closed. Android may delay execution slightly depending on battery, standby, constraints, and system scheduling.
+Use `schedule(...)` when a download should start at or after a specific time. The request is persisted in Room as `SCHEDULED` and BTDownloader enqueues a lightweight WorkManager trigger with an initial delay, so it can still wake up after the app process is closed. Android may delay execution slightly depending on battery, standby, constraints, and system scheduling.
 
 ```kotlin
 val id = btDownload.schedule(
@@ -239,6 +239,8 @@ val id = btDownload.schedule(
 ```
 
 Use `startNow(id)` to manually start a scheduled or queued item immediately.
+
+Scheduled downloads do not consume `DownloadConfig.maxConcurrentDownloads` while they are waiting for their scheduled time. When the trigger fires, BTDownloader moves the item to `QUEUED`; the normal queue manager then starts it only when a real download slot is available. This keeps future scheduled items from blocking immediate downloads.
 
 ## Queue And Priority
 

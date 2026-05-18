@@ -4,13 +4,17 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.sherafatpour.bluetile.DownloadConfig
 import com.sherafatpour.bluetile.DownloadError
+import com.sherafatpour.bluetile.NotificationConfig
 import com.sherafatpour.bluetile.Status
 import com.sherafatpour.bluetile.internal.database.DatabaseInstance
 import com.sherafatpour.bluetile.internal.download.DownloadTask
 import com.sherafatpour.bluetile.internal.download.ApiResponseHeaderChecker
+import com.sherafatpour.bluetile.internal.download.DownloadWorkCoordinator
 import com.sherafatpour.bluetile.internal.network.RetrofitInstance
 import com.sherafatpour.bluetile.internal.notification.DownloadNotificationManager
 import com.sherafatpour.bluetile.internal.utils.NotificationConst
@@ -211,6 +215,7 @@ internal class DownloadWorker(
 
             downloadNotificationManager?.sendDownloadSuccessNotification(totalLength, notificationParameter)
 
+            scheduleNextQueuedDownload(downloadConfig, notificationConfig)
 
             Result.success()
         } catch (e: Exception) {
@@ -274,11 +279,24 @@ internal class DownloadWorker(
             if (shouldRetry) {
                 return Result.retry()
             }
+            scheduleNextQueuedDownload(downloadConfig, notificationConfig)
             Result.failure(
                 workDataOf(ExceptionConst.KEY_EXCEPTION to e.message)
             )
         }
 
+    }
+
+    private suspend fun scheduleNextQueuedDownload(
+        downloadConfig: DownloadConfig,
+        notificationConfig: NotificationConfig
+    ) {
+        DownloadWorkCoordinator.scheduleQueuedDownloads(
+            downloadDao = downloadDao,
+            workManager = WorkManager.getInstance(context.applicationContext),
+            downloadConfig = downloadConfig,
+            notificationConfig = notificationConfig
+        )
     }
 
     private suspend fun markAsStarted(id: Int) {

@@ -1,12 +1,6 @@
 package com.sherafatpour.bluetile.internal.download
 
 import android.content.Context
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
-import androidx.work.Data
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.await
@@ -32,9 +26,7 @@ import com.sherafatpour.bluetile.internal.utils.FileUtil.deleteDownloadFiles
 import com.sherafatpour.bluetile.internal.utils.UserAction
 import com.sherafatpour.bluetile.internal.utils.WorkUtil
 import com.sherafatpour.bluetile.internal.utils.WorkUtil.removeNotification
-import com.sherafatpour.bluetile.internal.utils.WorkUtil.toJson
 import com.sherafatpour.bluetile.internal.utils.toDownloadModel
-import com.sherafatpour.bluetile.internal.worker.DownloadWorker
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +38,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 import java.util.UUID
 
 internal class DownloadManager(
@@ -200,6 +191,12 @@ internal class DownloadManager(
         } else {
             downloadRequest
         }
+        val isFutureScheduled = effectiveRequest.scheduledAtEpochMs?.let { it > System.currentTimeMillis() } == true
+        val requestedInitialStatus = if (isFutureScheduled) {
+            Status.SCHEDULED.toString()
+        } else {
+            Status.QUEUED.toString()
+        }
 
         // Checks if download id already present in database
         val existingEntity = downloadDao.find(effectiveRequest.id)
@@ -224,7 +221,7 @@ internal class DownloadManager(
                     notificationTitle = effectiveRequest.notificationTitle,
                     metaData = effectiveRequest.metaData,
                     userAction = UserAction.START.toString(),
-                    status = if (shouldQueueAgain) Status.QUEUED.toString() else existingEntity.status,
+                    status = if (shouldQueueAgain) requestedInitialStatus else existingEntity.status,
                     uuid = if (shouldQueueAgain) "" else existingEntity.uuid,
                     totalBytes = if (shouldResetProgress) 0 else existingEntity.totalBytes,
                     downloadedBytes = if (shouldResetProgress) 0 else existingEntity.downloadedBytes,
@@ -260,7 +257,7 @@ internal class DownloadManager(
                     notificationParameter = effectiveRequest.notificationParameter,
                     notificationTitle = effectiveRequest.notificationTitle,
                     timeQueued = System.currentTimeMillis(),
-                    status = Status.QUEUED.toString(),
+                    status = requestedInitialStatus,
                     uuid = "",
                     lastModified = System.currentTimeMillis(),
                     userAction = UserAction.START.toString(),
@@ -286,7 +283,18 @@ internal class DownloadManager(
             }
         }
 
-        scheduleQueuedDownloads()
+        val savedEntity = downloadDao.find(effectiveRequest.id) ?: return
+        if (isFutureScheduled && savedEntity.status == Status.SCHEDULED.toString() && savedEntity.uuid.isEmpty()) {
+            DownloadWorkCoordinator.enqueueSchedule(
+                downloadEntity = savedEntity,
+                downloadDao = downloadDao,
+                workManager = workManager,
+                downloadConfig = downloadConfig,
+                notificationConfig = notificationConfig
+            )
+        } else {
+            scheduleQueuedDownloads()
+        }
     }
 
     private fun String.isActiveDownloadStatus(): Boolean {
@@ -297,93 +305,12 @@ internal class DownloadManager(
     }
 
     private suspend fun scheduleQueuedDownloads() {
-        val scheduledCount = downloadDao.countScheduledEntity(
-            listOf(
-                Status.QUEUED.toString(),
-                Status.SCHEDULED.toString(),
-                Status.STARTED.toString(),
-                Status.PROGRESS.toString()
-            )
+        DownloadWorkCoordinator.scheduleQueuedDownloads(
+            downloadDao = downloadDao,
+            workManager = workManager,
+            downloadConfig = downloadConfig,
+            notificationConfig = notificationConfig
         )
-        val availableSlots = (downloadConfig.maxConcurrentDownloads - scheduledCount).coerceAtLeast(0)
-        if (availableSlots == 0) return
-
-        downloadDao.getPendingEntity(Status.QUEUED.toString())
-            .take(availableSlots)
-            .forEach { entity ->
-                enqueue(entity)
-            }
-    }
-
-    private suspend fun enqueue(downloadEntity: DownloadEntity) {
-        val downloadRequest = downloadEntity.toDownloadRequest()
-        val downloadWorkRequest = OneTimeWorkRequestBuilder<DownloadWorker>()
-            .setInputData(
-                Data.Builder()
-                    .putString(DownloadConst.KEY_DOWNLOAD_REQUEST, downloadRequest.toJson())
-                    .putString(DownloadConst.KEY_DOWNLOAD_CONFIG, downloadConfig.toJson())
-                    .putString(DownloadConst.KEY_NOTIFICATION_CONFIG, notificationConfig.toJson())
-                    .build()
-            )
-            .addTag(DownloadConst.TAG_DOWNLOAD)
-            .setConstraints(downloadRequest.constraints.toWorkConstraints())
-            .setBackoffCriteria(
-                downloadRequest.retryPolicy.backoffPolicy.toWorkBackoffPolicy(),
-                downloadRequest.retryPolicy.backoffDelayInMs,
-                TimeUnit.MILLISECONDS
-            )
-            .setInitialDelay(calculateInitialDelay(downloadRequest.scheduledAtEpochMs), TimeUnit.MILLISECONDS)
-            .build()
-
-        downloadDao.update(
-            downloadEntity.copy(
-                uuid = downloadWorkRequest.id.toString(),
-                status = Status.SCHEDULED.toString(),
-                lastModified = System.currentTimeMillis()
-            )
-        )
-
-        workManager.enqueueUniqueWork(
-            downloadEntity.id.toString(),
-            ExistingWorkPolicy.KEEP,
-            downloadWorkRequest
-        )
-    }
-
-    private fun DownloadEntity.toDownloadRequest() =
-        DownloadRequest(
-            url = url,
-            path = path,
-            fileName = fileName,
-            tag = tag,
-            id = id,
-            headers = WorkUtil.jsonToHashMap(headersJson),
-            metaData = metaData,
-            notificationParameter = notificationParameter,
-            notificationTitle = notificationTitle,
-            priority = com.sherafatpour.bluetile.DownloadPriority.entries.find { it.value == priority }
-                ?: com.sherafatpour.bluetile.DownloadPriority.NORMAL,
-            constraints = DownloadConstraints(
-                networkType = BTDownloaderNetworkType.entries.find { it.name == networkType }
-                    ?: BTDownloaderNetworkType.CONNECTED,
-                requiresCharging = requiresCharging,
-                requiresBatteryNotLow = requiresBatteryNotLow,
-                requiresStorageNotLow = requiresStorageNotLow
-            ),
-            retryPolicy = RetryPolicy(
-                maxRetries = maxRetries,
-                backoffDelayInMs = backoffDelayInMs,
-                backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == backoffPolicy }
-                    ?: BTDownloaderBackoffPolicy.EXPONENTIAL
-            ),
-            scheduledAtEpochMs = scheduledAtEpochMs.takeIf { it > 0L },
-            checksum = toChecksum(),
-            autoRenameIfExists = autoRenameIfExists
-        )
-
-    private fun calculateInitialDelay(scheduledAtEpochMs: Long?): Long {
-        if (scheduledAtEpochMs == null || scheduledAtEpochMs <= 0L) return 0L
-        return (scheduledAtEpochMs - System.currentTimeMillis()).coerceAtLeast(0L)
     }
 
     private fun DownloadEntity.toChecksum(): DownloadChecksum? {
@@ -391,28 +318,6 @@ internal class DownloadManager(
         val algorithm = DownloadChecksumAlgorithm.entries.find { it.name == checksumAlgorithm } ?: return null
         return DownloadChecksum(algorithm, checksumValue)
     }
-
-    private fun DownloadConstraints.toWorkConstraints() =
-        Constraints.Builder()
-            .setRequiredNetworkType(networkType.toWorkNetworkType())
-            .setRequiresCharging(requiresCharging)
-            .setRequiresBatteryNotLow(requiresBatteryNotLow)
-            .setRequiresStorageNotLow(requiresStorageNotLow)
-            .build()
-
-    private fun BTDownloaderNetworkType.toWorkNetworkType() =
-        when (this) {
-            BTDownloaderNetworkType.ANY -> NetworkType.NOT_REQUIRED
-            BTDownloaderNetworkType.CONNECTED -> NetworkType.CONNECTED
-            BTDownloaderNetworkType.UNMETERED -> NetworkType.UNMETERED
-            BTDownloaderNetworkType.NOT_ROAMING -> NetworkType.NOT_ROAMING
-        }
-
-    private fun BTDownloaderBackoffPolicy.toWorkBackoffPolicy() =
-        when (this) {
-            BTDownloaderBackoffPolicy.LINEAR -> BackoffPolicy.LINEAR
-            BTDownloaderBackoffPolicy.EXPONENTIAL -> BackoffPolicy.EXPONENTIAL
-        }
 
     private suspend fun resume(id: Int) {
         val downloadEntity = downloadDao.find(id)
@@ -489,7 +394,8 @@ internal class DownloadManager(
                 ).sendDownloadCancelledNotification()
             }
         }
-        workManager.cancelUniqueWork(id.toString()).await()
+        workManager.cancelUniqueWork(DownloadWorkCoordinator.downloadWorkName(id)).await()
+        workManager.cancelUniqueWork(DownloadWorkCoordinator.scheduleWorkName(id)).await()
         val latest = downloadDao.find(id)
         if (latest?.userAction == UserAction.CANCEL.toString() && latest.status.isActiveDownloadStatus()) {
             downloadDao.update(
@@ -515,7 +421,8 @@ internal class DownloadManager(
                 )
             )
         }
-        workManager.cancelUniqueWork(id.toString()).await()
+        workManager.cancelUniqueWork(DownloadWorkCoordinator.downloadWorkName(id)).await()
+        workManager.cancelUniqueWork(DownloadWorkCoordinator.scheduleWorkName(id)).await()
         val latest = downloadDao.find(id)
         if (latest?.userAction == UserAction.PAUSE.toString() && latest.status.isActiveDownloadStatus()) {
             downloadDao.update(
@@ -587,6 +494,9 @@ internal class DownloadManager(
         val target = downloadDao.find(id) ?: return
 
         val targetPriority = DownloadPriority.IMMEDIATE
+        if (target.status == Status.SCHEDULED.toString() && target.uuid.isEmpty()) {
+            workManager.cancelUniqueWork(DownloadWorkCoordinator.scheduleWorkName(id)).await()
+        }
         if (target.status == Status.STARTED.toString() || target.status == Status.PROGRESS.toString()) {
             setPriority(id, targetPriority)
             return
@@ -619,14 +529,16 @@ internal class DownloadManager(
                 priority = targetPriority.value,
                 userAction = UserAction.START.toString(),
                 status = if (updatedTarget.status == Status.PAUSED.toString() ||
-                    updatedTarget.status == Status.FAILED.toString()
+                    updatedTarget.status == Status.FAILED.toString() ||
+                    updatedTarget.status == Status.SCHEDULED.toString()
                 ) {
                     Status.QUEUED.toString()
                 } else {
                     updatedTarget.status
                 },
                 uuid = if (updatedTarget.status == Status.PAUSED.toString() ||
-                    updatedTarget.status == Status.FAILED.toString()
+                    updatedTarget.status == Status.FAILED.toString() ||
+                    updatedTarget.status == Status.SCHEDULED.toString()
                 ) {
                     ""
                 } else {
