@@ -67,8 +67,8 @@ class DownloadManagerViewModel(
             fileName = "scheduled_${System.currentTimeMillis()}.pdf",
             priority = DownloadPriority.NORMAL,
             constraints = DownloadConstraints(
-                networkType = BTDownloaderNetworkType.UNMETERED,
-                requiresCharging = true
+                networkType = BTDownloaderNetworkType.CONNECTED,
+                requiresCharging = false
             )
         )
     }

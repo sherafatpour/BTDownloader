@@ -296,12 +296,20 @@ internal class DownloadWorker(
         downloadConfig: DownloadConfig,
         notificationConfig: NotificationConfig
     ) {
-        DownloadWorkCoordinator.scheduleQueuedDownloads(
+        val workManager = WorkManager.getInstance(context.applicationContext)
+        val result = DownloadWorkCoordinator.scheduleQueuedDownloads(
             downloadDao = downloadDao,
-            workManager = WorkManager.getInstance(context.applicationContext),
+            workManager = workManager,
             downloadConfig = downloadConfig,
             notificationConfig = notificationConfig
         )
+        if (result.hasPendingDownloads) {
+            DownloadWorkCoordinator.enqueueQueueDrain(
+                workManager = workManager,
+                downloadConfig = downloadConfig,
+                notificationConfig = notificationConfig
+            )
+        }
     }
 
     private suspend fun markAsStarted(id: Int) {

@@ -53,17 +53,30 @@ internal class DownloadScheduleWorker(
             )
         }
 
-        DownloadWorkCoordinator.scheduleQueuedDownloads(
+        val workManager = WorkManager.getInstance(context.applicationContext)
+        val dispatchResult = DownloadWorkCoordinator.scheduleQueuedDownloads(
             downloadDao = downloadDao,
-            workManager = WorkManager.getInstance(context.applicationContext),
+            workManager = workManager,
             downloadConfig = downloadConfig,
             notificationConfig = notificationConfig
         )
 
         val latest = downloadDao.find(requestId) ?: return Result.success()
         return if (latest.status == Status.QUEUED.toString() && latest.uuid.isEmpty()) {
+            DownloadWorkCoordinator.enqueueQueueDrain(
+                workManager = workManager,
+                downloadConfig = downloadConfig,
+                notificationConfig = notificationConfig
+            )
             Result.retry()
         } else {
+            if (dispatchResult.hasPendingDownloads) {
+                DownloadWorkCoordinator.enqueueQueueDrain(
+                    workManager = workManager,
+                    downloadConfig = downloadConfig,
+                    notificationConfig = notificationConfig
+                )
+            }
             Result.success()
         }
     }

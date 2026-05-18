@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.4 - 2026-05-18
+
+### Fixed
+
+- Added a dedicated `DownloadQueueDrainWorker` so queued scheduled downloads continue to be dispatched in the background even when all download slots were full at their scheduled time.
+- Queue dispatch now reports pending work and schedules a unique queue-drain retry worker whenever items remain queued after a dispatch attempt.
+- Updated `DownloadScheduleWorker`, `DownloadWorker`, and app-open queue dispatch paths to enqueue the queue-drain worker whenever pending downloads remain.
+- Fixed the sample quick schedule action so it no longer requires unmetered Wi-Fi and charging by default, making scheduled downloads start during normal sample testing.
+
 ## 1.1.3 - 2026-05-18
 
 ### Fixed

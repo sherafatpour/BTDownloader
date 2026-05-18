@@ -6,6 +6,7 @@ internal object DownloadConst {
     const val BASE_URL = "http://localhost/"
     const val TAG_DOWNLOAD = "downloads"
     const val TAG_SCHEDULED_DOWNLOAD = "scheduled_downloads"
+    const val TAG_QUEUE_DRAIN = "queue_drain"
     const val KEY_FILE_NAME = "key_fileName"
     const val KEY_STATE = "key_state"
     const val KEY_PROGRESS = "key_progress"
@@ -20,6 +21,7 @@ internal object DownloadConst {
     const val KEY_DOWNLOAD_CONFIG = "key_download_config"
     const val KEY_NOTIFICATION_CONFIG = "key_notification_config"
     const val UNIQUE_SCHEDULE_WORK_PREFIX = "bt_schedule_"
+    const val UNIQUE_QUEUE_DRAIN_WORK = "bt_queue_drain"
     const val SCHEDULE_QUEUE_RETRY_BACKOFF_MS = 10000L
     const val ETAG_HEADER = "ETag"
     const val CONTENT_LENGTH = "Content-Length"

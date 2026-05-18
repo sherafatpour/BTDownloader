@@ -305,12 +305,19 @@ internal class DownloadManager(
     }
 
     private suspend fun scheduleQueuedDownloads() {
-        DownloadWorkCoordinator.scheduleQueuedDownloads(
+        val result = DownloadWorkCoordinator.scheduleQueuedDownloads(
             downloadDao = downloadDao,
             workManager = workManager,
             downloadConfig = downloadConfig,
             notificationConfig = notificationConfig
         )
+        if (result.hasPendingDownloads) {
+            DownloadWorkCoordinator.enqueueQueueDrain(
+                workManager = workManager,
+                downloadConfig = downloadConfig,
+                notificationConfig = notificationConfig
+            )
+        }
     }
 
     private fun DownloadEntity.toChecksum(): DownloadChecksum? {

@@ -22,6 +22,7 @@ import com.sherafatpour.bluetile.internal.database.DownloadEntity
 import com.sherafatpour.bluetile.internal.utils.DownloadConst
 import com.sherafatpour.bluetile.internal.utils.WorkUtil
 import com.sherafatpour.bluetile.internal.utils.WorkUtil.toJson
+import com.sherafatpour.bluetile.internal.worker.DownloadQueueDrainWorker
 import com.sherafatpour.bluetile.internal.worker.DownloadScheduleWorker
 import com.sherafatpour.bluetile.internal.worker.DownloadWorker
 import kotlinx.coroutines.sync.Mutex
@@ -32,9 +33,45 @@ internal object DownloadWorkCoordinator {
 
     private val queueMutex = Mutex()
 
+    data class QueueDispatchResult(
+        val activeCount: Int,
+        val availableSlots: Int,
+        val enqueuedCount: Int,
+        val pendingCount: Int
+    ) {
+        val hasPendingDownloads: Boolean = pendingCount > 0
+    }
+
     fun downloadWorkName(id: Int): String = id.toString()
 
     fun scheduleWorkName(id: Int): String = "${DownloadConst.UNIQUE_SCHEDULE_WORK_PREFIX}$id"
+
+    fun enqueueQueueDrain(
+        workManager: WorkManager,
+        downloadConfig: DownloadConfig,
+        notificationConfig: NotificationConfig
+    ) {
+        val queueDrainWorkRequest = OneTimeWorkRequestBuilder<DownloadQueueDrainWorker>()
+            .setInputData(
+                Data.Builder()
+                    .putString(DownloadConst.KEY_DOWNLOAD_CONFIG, downloadConfig.toJson())
+                    .putString(DownloadConst.KEY_NOTIFICATION_CONFIG, notificationConfig.toJson())
+                    .build()
+            )
+            .addTag(DownloadConst.TAG_QUEUE_DRAIN)
+            .setBackoffCriteria(
+                BackoffPolicy.LINEAR,
+                DownloadConst.SCHEDULE_QUEUE_RETRY_BACKOFF_MS,
+                TimeUnit.MILLISECONDS
+            )
+            .build()
+
+        workManager.enqueueUniqueWork(
+            DownloadConst.UNIQUE_QUEUE_DRAIN_WORK,
+            ExistingWorkPolicy.KEEP,
+            queueDrainWorkRequest
+        )
+    }
 
     suspend fun enqueueSchedule(
         downloadEntity: DownloadEntity,
@@ -89,16 +126,33 @@ internal object DownloadWorkCoordinator {
             )
         )
         val availableSlots = (downloadConfig.maxConcurrentDownloads - activeCount).coerceAtLeast(0)
-        if (availableSlots == 0) return
+        val pendingBeforeDispatch = downloadDao.getPendingEntity(Status.QUEUED.toString())
+        if (availableSlots == 0) {
+            return@withLock QueueDispatchResult(
+                activeCount = activeCount,
+                availableSlots = 0,
+                enqueuedCount = 0,
+                pendingCount = pendingBeforeDispatch.size
+            )
+        }
 
-        downloadDao.getPendingEntity(Status.QUEUED.toString())
+        var enqueuedCount = 0
+        pendingBeforeDispatch
             .take(availableSlots)
             .forEach { entity ->
                 val latestEntity = downloadDao.find(entity.id) ?: return@forEach
                 if (latestEntity.status == Status.QUEUED.toString() && latestEntity.uuid.isEmpty()) {
                     enqueueDownload(latestEntity, downloadDao, workManager, downloadConfig, notificationConfig)
+                    enqueuedCount++
                 }
             }
+
+        QueueDispatchResult(
+            activeCount = activeCount,
+            availableSlots = availableSlots,
+            enqueuedCount = enqueuedCount,
+            pendingCount = downloadDao.getPendingEntity(Status.QUEUED.toString()).size
+        )
     }
 
     suspend fun enqueueDownload(
