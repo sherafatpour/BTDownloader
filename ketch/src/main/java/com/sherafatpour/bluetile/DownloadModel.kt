@@ -39,6 +39,7 @@ data class DownloadModel(
     val metaData: String,
     val failureReason: String,
     val priority: DownloadPriority = DownloadPriority.NORMAL,
+    val scheduledAtEpochMs: Long = 0L,
     val runAttemptCount: Int = 0,
     val maxRetries: Int = 0,
     val errorType: DownloadError = DownloadError.NONE,

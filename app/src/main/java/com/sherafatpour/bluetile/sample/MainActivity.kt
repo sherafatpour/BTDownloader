@@ -1,61 +1,70 @@
 package com.sherafatpour.bluetile.sample
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import com.sherafatpour.bluetile.sample.databinding.ActivityMainBinding
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.core.content.FileProvider
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sherafatpour.bluetile.DownloadModel
+import com.sherafatpour.bluetile.Status
+import java.io.File
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var viewModel: DownloadManagerViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Retrieve the notificationParameter when the activity is created
-        intent?.extras?.getString("parameter")?.let { notificationParameter ->
-            // Use the notificationParameter (show in Toast, log, etc.)
-            Log.i("Testing", "Parameter $notificationParameter")
+        requestNotificationPermissionIfNeeded()
 
+        val btDownloader = (applicationContext as MainApplication).btDownload
+        val downloadDir = File(getExternalFilesDir(null), "btdownloader-downloads").apply { mkdirs() }
+        val factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return DownloadManagerViewModel(btDownloader, downloadDir.absolutePath) as T
+            }
         }
+        viewModel = ViewModelProvider(this, factory)[DownloadManagerViewModel::class.java]
 
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContent {
+            val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
+            DownloadManagerScreen(
+                uiState = uiState,
+                onIntent = viewModel::onIntent,
+                onOpenFile = ::openFile
+            )
+        }
+    }
 
-        if (savedInstanceState != null) return
-
+    private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
-            Toast.makeText(this, "Notification permission requested", Toast.LENGTH_SHORT)
-                .show()
-        }
-
-        openTestFragment()
-    }
-
-    private fun openTestFragment() {
-        //Test with your own url
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.container, MainFragment.newInstance()).commit()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        if (requestCode == 101) {
-            if (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Downloads will continue without notifications", Toast.LENGTH_SHORT)
-                    .show()
-            }
+            Toast.makeText(this, "Notification permission requested", Toast.LENGTH_SHORT).show()
         }
     }
 
-
+    private fun openFile(download: DownloadModel) {
+        if (download.status != Status.SUCCESS) return
+        val file = File(download.path, download.fileName)
+        if (!file.exists()) {
+            Toast.makeText(this, "File not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uri = FileProvider.getUriForFile(this, "$packageName.provider", file)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, contentResolver.getType(uri))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure { Toast.makeText(this, "No app found to open file", Toast.LENGTH_SHORT).show() }
+    }
 }

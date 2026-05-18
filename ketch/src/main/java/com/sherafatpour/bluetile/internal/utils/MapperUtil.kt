@@ -29,6 +29,7 @@ internal fun DownloadEntity.toDownloadModel() =
         notificationTitle = notificationTitle,
         notificationParameter = notificationParameter,
         priority = DownloadPriority.entries.find { it.value == priority } ?: DownloadPriority.NORMAL,
+        scheduledAtEpochMs = scheduledAtEpochMs,
         runAttemptCount = runAttemptCount,
         maxRetries = maxRetries,
         errorType = DownloadError.entries.find { it.name == errorType } ?: DownloadError.UNKNOWN,

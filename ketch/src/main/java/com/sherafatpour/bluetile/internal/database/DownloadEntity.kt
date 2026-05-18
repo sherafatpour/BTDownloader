@@ -41,6 +41,7 @@ internal data class DownloadEntity(
     var maxRetries: Int = 3,
     var backoffDelayInMs: Long = 10_000L,
     var backoffPolicy: String = BTDownloaderBackoffPolicy.EXPONENTIAL.toString(),
+    var scheduledAtEpochMs: Long = 0L,
     var runAttemptCount: Int = 0,
     var checksumAlgorithm: String = "",
     var checksumValue: String = "",

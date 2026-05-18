@@ -239,6 +239,7 @@ internal class DownloadManager(
                     maxRetries = effectiveRequest.retryPolicy.maxRetries,
                     backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
                     backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
+                    scheduledAtEpochMs = effectiveRequest.scheduledAtEpochMs ?: 0L,
                     checksumAlgorithm = effectiveRequest.checksum?.algorithm?.name.orEmpty(),
                     checksumValue = effectiveRequest.checksum?.value.orEmpty(),
                     errorType = if (shouldQueueAgain) DownloadError.NONE.toString() else existingEntity.errorType,
@@ -271,6 +272,7 @@ internal class DownloadManager(
                     maxRetries = effectiveRequest.retryPolicy.maxRetries,
                     backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
                     backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
+                    scheduledAtEpochMs = effectiveRequest.scheduledAtEpochMs ?: 0L,
                     checksumAlgorithm = effectiveRequest.checksum?.algorithm?.name.orEmpty(),
                     checksumValue = effectiveRequest.checksum?.value.orEmpty(),
                     autoRenameIfExists = effectiveRequest.autoRenameIfExists
@@ -329,6 +331,7 @@ internal class DownloadManager(
                 downloadRequest.retryPolicy.backoffDelayInMs,
                 TimeUnit.MILLISECONDS
             )
+            .setInitialDelay(calculateInitialDelay(downloadRequest.scheduledAtEpochMs), TimeUnit.MILLISECONDS)
             .build()
 
         downloadDao.update(
@@ -372,9 +375,15 @@ internal class DownloadManager(
                 backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == backoffPolicy }
                     ?: BTDownloaderBackoffPolicy.EXPONENTIAL
             ),
+            scheduledAtEpochMs = scheduledAtEpochMs.takeIf { it > 0L },
             checksum = toChecksum(),
             autoRenameIfExists = autoRenameIfExists
         )
+
+    private fun calculateInitialDelay(scheduledAtEpochMs: Long?): Long {
+        if (scheduledAtEpochMs == null || scheduledAtEpochMs <= 0L) return 0L
+        return (scheduledAtEpochMs - System.currentTimeMillis()).coerceAtLeast(0L)
+    }
 
     private fun DownloadEntity.toChecksum(): DownloadChecksum? {
         if (checksumAlgorithm.isBlank() || checksumValue.isBlank()) return null
@@ -439,6 +448,7 @@ internal class DownloadManager(
                         backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == downloadEntity.backoffPolicy }
                             ?: BTDownloaderBackoffPolicy.EXPONENTIAL
                     ),
+                    scheduledAtEpochMs = downloadEntity.scheduledAtEpochMs.takeIf { it > 0L },
                     checksum = downloadEntity.toChecksum(),
                     autoRenameIfExists = downloadEntity.autoRenameIfExists
                 )
@@ -530,6 +540,7 @@ internal class DownloadManager(
                         backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == downloadEntity.backoffPolicy }
                             ?: BTDownloaderBackoffPolicy.EXPONENTIAL
                     ),
+                    scheduledAtEpochMs = downloadEntity.scheduledAtEpochMs.takeIf { it > 0L },
                     checksum = downloadEntity.toChecksum(),
                     autoRenameIfExists = downloadEntity.autoRenameIfExists
                 )

@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.0.0'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.0'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.0.0")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.0")
 }
 ```
 
-این مختصات برای release tag `1.0.0` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.0` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.0.0
+1.1.0
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.0.0
+git tag 1.1.0
 git push origin codex/ketch-jitpack-release
-git push origin 1.0.0
+git push origin 1.1.0
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.0.0
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.0
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
@@ -323,6 +323,15 @@ fun download(
 
 یک `DownloadRequest` داخلی می‌سازد و آن را در پایگاه داده ثبت می‌کند. BTDownloader فقط وقتی slot آزاد داشته باشد آن را وارد WorkManager می‌کند. مقدار برگشتی `id` دانلود است. این `id` از ترکیب `url`، `path` و `fileName` ساخته می‌شود. اگر `autoRenameIfExists = true` باشد، نام فایل قبل از ساخت id به نام آزاد بعدی مثل `movie (1).mp4` تبدیل می‌شود.
 
+اگر `fileName` را نفرستید، مقدار پیش‌فرض از مسیر URL استخراج می‌شود. برای مثال URL زیر به نام `movie.mp4` تبدیل می‌شود:
+
+```kotlin
+val id = btDownload.download(
+    url = "https://example.com/files/movie.mp4",
+    path = downloadDirectory.absolutePath
+)
+```
+
 برای checksum:
 
 ```kotlin
@@ -335,6 +344,49 @@ btDownload.download(
         value = "expected-sha256-hex"
     )
 )
+```
+
+### schedule
+
+```kotlin
+fun schedule(
+    url: String,
+    path: String,
+    scheduledAtEpochMs: Long,
+    fileName: String = FileUtil.getFileNameFromUrl(url),
+    tag: String = "",
+    metaData: String = "",
+    notificationTitle: String = "",
+    notificationParameter: String = "",
+    headers: HashMap<String, String> = hashMapOf(),
+    priority: DownloadPriority = DownloadPriority.NORMAL,
+    constraints: DownloadConstraints = DownloadConstraints(),
+    retryPolicy: RetryPolicy = RetryPolicy(),
+    checksum: DownloadChecksum? = null,
+    autoRenameIfExists: Boolean = false
+): Int
+```
+
+`schedule(...)` دانلود را برای یک زمان مشخص ثبت می‌کند. این زمان در Room ذخیره می‌شود و هنگام تحویل به WorkManager به `initialDelay` تبدیل می‌شود؛ بنابراین اگر اپ بسته باشد، WorkManager همچنان می‌تواند در زمان مناسب یا کمی بعدتر job را اجرا کند. اجرای کاملا دقیق ثانیه‌ای توسط Android تضمین نمی‌شود و constraints مثل Wi-Fi، charging یا battery می‌توانند شروع را عقب بیندازند.
+
+نمونه زمان‌بندی برای 30 دقیقه بعد فقط روی Wi-Fi و هنگام شارژ:
+
+```kotlin
+val id = btDownload.schedule(
+    url = "https://example.com/report.pdf",
+    path = downloadDirectory.absolutePath,
+    scheduledAtEpochMs = System.currentTimeMillis() + 30 * 60_000L,
+    constraints = DownloadConstraints(
+        networkType = BTDownloaderNetworkType.UNMETERED,
+        requiresCharging = true
+    )
+)
+```
+
+اگر کاربر بخواهد یک آیتم زمان‌بندی‌شده یا صف‌شده را فوری اجرا کند:
+
+```kotlin
+btDownload.startNow(id)
 ```
 
 ### صف، priority و concurrency
@@ -431,6 +483,7 @@ suspend fun getContentLength(
 | `failureReason` | پیام خطا در وضعیت failed |
 | `errorType` | دسته‌بندی پایدار خطا مثل `NETWORK`, `STORAGE`, `SERVER`, `CHECKSUM` |
 | `priority` | اولویت زمان‌بندی دانلود |
+| `scheduledAtEpochMs` | زمان برنامه‌ریزی‌شده دانلود، اگر با `schedule(...)` ثبت شده باشد |
 | `runAttemptCount` | تعداد تلاش‌های WorkManager برای job فعلی |
 | `maxRetries` | سقف retry خودکار |
 | `checksum` | checksum مورد انتظار، در صورت تعریف شدن |
@@ -480,6 +533,12 @@ flowchart LR
 - `DownloadNotificationManager` و `NotificationReceiver`: نمایش و مدیریت actionهای notification.
 - `FileUtil`, `WorkUtil`, `MapperUtil`, `TextUtil`: utilityهای فایل، serialization، mapping و متن notification.
 
+## Sample app
+
+ماژول `:app` یک sample با Jetpack Compose و الگوی MVI سبک است. `DownloadManagerViewModel` وضعیت دانلودها را با `StateFlow` از BTDownloader دریافت می‌کند و intentهای UI مثل اضافه کردن دانلود، زمان‌بندی، pause، resume، retry، cancel، delete، open و `startNow` را به API کتابخانه وصل می‌کند.
+
+صفحه Compose شامل tabهای `ALL`, `ACTIVE`, `QUEUED`, `SCHEDULED`, `COMPLETED`, `FAILED`، کارت مدرن برای هر دانلود، dialog اضافه کردن دانلود، انتخاب priority، نوع شبکه، شرط شارژ و انتخاب تاریخ/ساعت دقیق برای schedule است.
+
 ## رفتار resume، فایل موقت و ETag
 
 BTDownloader برای resume از header زیر استفاده می‌کند:
@@ -520,3 +579,7 @@ Range: bytes=<current-file-length>-
 ./gradlew :ketch:assembleDebug :ketch:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ```
+
+## تغییرات نسخه‌ها
+
+لیست کامل تغییرات در [CHANGELOG.md](../CHANGELOG.md) نگهداری می‌شود.

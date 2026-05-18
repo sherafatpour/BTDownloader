@@ -198,6 +198,55 @@ class BTDownloader private constructor(
     }
 
     /**
+     * Schedule a download for a specific epoch time (milliseconds).
+     *
+     * If [scheduledAtEpochMs] is in the past, download starts as soon as queue/concurrency allows.
+     */
+    fun schedule(
+        url: String,
+        path: String,
+        scheduledAtEpochMs: Long,
+        fileName: String = FileUtil.getFileNameFromUrl(url),
+        tag: String = "",
+        metaData: String = "",
+        notificationTitle: String = "",
+        notificationParameter: String = "",
+        headers: HashMap<String, String> = hashMapOf(),
+        priority: DownloadPriority = DownloadPriority.NORMAL,
+        constraints: DownloadConstraints = DownloadConstraints(),
+        retryPolicy: RetryPolicy = RetryPolicy(),
+        checksum: DownloadChecksum? = null,
+        autoRenameIfExists: Boolean = false
+    ): Int {
+        require(url.isNotEmpty() && path.isNotEmpty() && fileName.isNotEmpty()) {
+            "Missing ${if (url.isEmpty()) "url" else if (path.isEmpty()) "path" else "fileName"}"
+        }
+        val resolvedFileName = if (autoRenameIfExists) {
+            FileUtil.resolveAvailableFileName(path, fileName)
+        } else {
+            fileName
+        }
+        val downloadRequest = DownloadRequest(
+            url = url,
+            path = path,
+            fileName = resolvedFileName,
+            tag = tag,
+            headers = headers,
+            metaData = metaData,
+            notificationTitle = notificationTitle,
+            notificationParameter = notificationParameter,
+            priority = priority,
+            constraints = constraints,
+            retryPolicy = retryPolicy,
+            scheduledAtEpochMs = scheduledAtEpochMs,
+            checksum = checksum,
+            autoRenameIfExists = autoRenameIfExists
+        )
+        downloadManager.downloadAsync(downloadRequest)
+        return downloadRequest.id
+    }
+
+    /**
      * Change priority for a queued or future retry download.
      *
      * Already-running workers are not preempted; the new priority is applied when the item is

@@ -19,6 +19,7 @@ internal data class DownloadRequest(
     val priority: DownloadPriority = DownloadPriority.NORMAL,
     val constraints: DownloadConstraints = DownloadConstraints(),
     val retryPolicy: RetryPolicy = RetryPolicy(),
+    val scheduledAtEpochMs: Long? = null,
     val checksum: DownloadChecksum? = null,
     val autoRenameIfExists: Boolean = false
 )

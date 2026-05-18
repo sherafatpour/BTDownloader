@@ -15,6 +15,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 - Priority scheduling: `LOW`, `NORMAL`, `HIGH`, `IMMEDIATE`
 - Runtime priority updates for queued/future work
 - Per-download constraints: connected, unmetered, not-roaming, charging, battery-not-low, storage-not-low
+- Scheduled downloads at a specific epoch time with WorkManager-backed persistence
 - Automatic retry with linear or exponential backoff
 - Optional speed throttling and free-space preflight
 - Optional checksum verification with `MD5` or `SHA256`
@@ -45,7 +46,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-1.0.0
+1.1.0
 ```
 
 Add JitPack:
@@ -65,7 +66,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.0.0'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.0'
 }
 ```
 
@@ -73,11 +74,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.0.0")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.0")
 }
 ```
 
-JitPack builds this repository from the release tag `1.0.0`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.1.0`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -100,7 +101,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour:BTDownloader:1.0.0
+com.github.sherafatpour:BTDownloader:1.1.0
 ```
 
 Release checklist:
@@ -108,15 +109,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 1.0.0
+git tag 1.1.0
 git push origin codex/ketch-jitpack-release
-git push origin 1.0.0
+git push origin 1.1.0
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.0.0
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.0
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -127,9 +128,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `BTDownloader-1.0.0.aar`
-- `BTDownloader-1.0.0.pom`
-- `BTDownloader-1.0.0-sources.jar`
+- `BTDownloader-1.1.0.aar`
+- `BTDownloader-1.1.0.pom`
+- `BTDownloader-1.1.0-sources.jar`
 
 ## Quick Start
 
@@ -164,6 +165,15 @@ val id = btDownload.download(
     url = "https://example.com/video.mp4",
     path = filesDir.absolutePath,
     fileName = "video.mp4"
+)
+```
+
+If `fileName` is omitted, BTDownloader derives the file name from the URL path:
+
+```kotlin
+val id = btDownload.download(
+    url = "https://example.com/files/video.mp4",
+    path = filesDir.absolutePath
 )
 ```
 
@@ -210,6 +220,25 @@ val id = btDownload.download(
     autoRenameIfExists = true
 )
 ```
+
+## Scheduled Downloads
+
+Use `schedule(...)` when a download should start at or after a specific time. The request is persisted in Room and handed to WorkManager with an initial delay, so it can still run after the app process is closed. Android may delay execution slightly depending on battery, standby, constraints, and system scheduling.
+
+```kotlin
+val id = btDownload.schedule(
+    url = "https://example.com/report.pdf",
+    path = filesDir.absolutePath,
+    scheduledAtEpochMs = System.currentTimeMillis() + 30 * 60_000L,
+    priority = DownloadPriority.NORMAL,
+    constraints = DownloadConstraints(
+        networkType = BTDownloaderNetworkType.UNMETERED,
+        requiresCharging = true
+    )
+)
+```
+
+Use `startNow(id)` to manually start a scheduled or queued item immediately.
 
 ## Queue And Priority
 
@@ -259,7 +288,11 @@ btDownload.observeDownloadByTag(tag): Flow<List<DownloadModel>>
 btDownload.getAllDownloads(): List<DownloadModel>
 ```
 
-`DownloadModel` includes URL, path, file name, tag, id, headers, status, total bytes, progress, speed, ETag, metadata, failure reason, priority, and retry attempt info.
+`DownloadModel` includes URL, path, file name, tag, id, headers, status, total bytes, progress, speed, ETag, metadata, failure reason, priority, scheduled time, and retry attempt info.
+
+## Sample App
+
+The `:app` module is a Jetpack Compose sample that uses an MVI-style `DownloadManagerViewModel`. It demonstrates immediate downloads, scheduled downloads with date/time picking, priority selection, network constraints, charging constraints, pause/resume/retry/cancel/delete/open actions, and `startNow(id)` from the overflow menu.
 
 ## Status Lifecycle
 
@@ -432,6 +465,7 @@ Full check used for this repository:
 ## More Documentation
 
 - [Full BTDownloader library documentation](docs/BTDownloader.md)
+- [Changelog](CHANGELOG.md)
 - [Agent guide](AGENTS.md)
 
 ## License
