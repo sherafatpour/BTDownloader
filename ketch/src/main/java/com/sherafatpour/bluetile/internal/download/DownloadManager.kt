@@ -494,7 +494,10 @@ internal class DownloadManager(
         val target = downloadDao.find(id) ?: return
 
         val targetPriority = DownloadPriority.IMMEDIATE
-        if (target.status == Status.SCHEDULED.toString() && target.uuid.isEmpty()) {
+        if (target.scheduledAtEpochMs > 0L &&
+            target.uuid.isEmpty() &&
+            target.status in listOf(Status.SCHEDULED.toString(), Status.QUEUED.toString())
+        ) {
             workManager.cancelUniqueWork(DownloadWorkCoordinator.scheduleWorkName(id)).await()
         }
         if (target.status == Status.STARTED.toString() || target.status == Status.PROGRESS.toString()) {

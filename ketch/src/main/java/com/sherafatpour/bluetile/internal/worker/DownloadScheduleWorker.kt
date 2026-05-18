@@ -28,23 +28,30 @@ internal class DownloadScheduleWorker(
         )
         val downloadDao = DatabaseInstance.getInstance(context).downloadDao()
         val entity = downloadDao.find(requestId) ?: return Result.success()
+        val now = System.currentTimeMillis()
+        val isWaitingForSchedule = entity.status == Status.SCHEDULED.toString() &&
+            entity.uuid.isEmpty() &&
+            entity.scheduledAtEpochMs > 0L
+        val isPendingQueue = entity.status == Status.QUEUED.toString() && entity.uuid.isEmpty()
 
-        if (entity.status != Status.SCHEDULED.toString() || entity.scheduledAtEpochMs <= 0L) {
+        if (!isWaitingForSchedule && !isPendingQueue) {
             return Result.success()
         }
 
-        if (entity.scheduledAtEpochMs > System.currentTimeMillis()) {
+        if (isWaitingForSchedule && entity.scheduledAtEpochMs > now) {
             return Result.retry()
         }
 
-        downloadDao.update(
-            entity.copy(
-                status = Status.QUEUED.toString(),
-                uuid = "",
-                userAction = UserAction.START.toString(),
-                lastModified = System.currentTimeMillis()
+        if (isWaitingForSchedule) {
+            downloadDao.update(
+                entity.copy(
+                    status = Status.QUEUED.toString(),
+                    uuid = "",
+                    userAction = UserAction.START.toString(),
+                    lastModified = now
+                )
             )
-        )
+        }
 
         DownloadWorkCoordinator.scheduleQueuedDownloads(
             downloadDao = downloadDao,
@@ -52,6 +59,12 @@ internal class DownloadScheduleWorker(
             downloadConfig = downloadConfig,
             notificationConfig = notificationConfig
         )
-        return Result.success()
+
+        val latest = downloadDao.find(requestId) ?: return Result.success()
+        return if (latest.status == Status.QUEUED.toString() && latest.uuid.isEmpty()) {
+            Result.retry()
+        } else {
+            Result.success()
+        }
     }
 }

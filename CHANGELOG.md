@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.3 - 2026-05-18
+
+### Fixed
+
+- Fixed scheduled downloads that were due while all concurrent slots were full getting stuck in `QUEUED` when the app UI/process was closed.
+- Updated `DownloadScheduleWorker` to keep retrying with lightweight WorkManager backoff until its scheduled item is actually accepted into the real download queue.
+- Made queue dispatch serialized with a `Mutex` to avoid races when several scheduled downloads become due at the same time.
+- Moved terminal queue continuation in `DownloadWorker` into `NonCancellable` cleanup so pause/cancel/failure can still unblock the next queued item in the background.
+- Cancelled the pending schedule trigger when `startNow(id)` is used on a due scheduled item that is already `QUEUED`.
+
 ## 1.1.2 - 2026-05-18
 
 ### Fixed

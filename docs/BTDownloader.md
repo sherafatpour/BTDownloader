@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.2'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.3'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.2")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.3")
 }
 ```
 
-این مختصات برای release tag `1.1.2` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.3` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.1.2
+1.1.3
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.1.2
+git tag 1.1.3
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.2
+git push origin 1.1.3
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.2
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.3
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
@@ -398,6 +398,8 @@ fun schedule(
 `schedule(...)` دانلود را برای یک زمان مشخص ثبت می‌کند. این زمان در Room با وضعیت `SCHEDULED` ذخیره می‌شود و BTDownloader فقط یک trigger سبک WorkManager با `initialDelay` می‌سازد؛ بنابراین اگر اپ بسته باشد، WorkManager همچنان می‌تواند در زمان مناسب یا کمی بعدتر اپ را برای فعال‌سازی دانلود بیدار کند. اجرای کاملا دقیق ثانیه‌ای توسط Android تضمین نمی‌شود و constraints مثل Wi-Fi، charging یا battery می‌توانند شروع را عقب بیندازند.
 
 دانلودهای زمان‌بندی‌شده تا قبل از رسیدن موعد، وارد صف واقعی دانلود نمی‌شوند و slot مربوط به `DownloadConfig.maxConcurrentDownloads` را اشغال نمی‌کنند. وقتی زمانشان رسید، از `SCHEDULED` به `QUEUED` منتقل می‌شوند و queue manager فقط در صورت آزاد بودن slot، دانلود واقعی را شروع می‌کند. این مدل باعث می‌شود دانلودهای آینده جلوی دانلودهای فوری را نگیرند.
+
+اگر چند دانلود زمان‌بندی‌شده همزمان موعدشان برسد و همه slotها پر باشند، آیتم‌های اضافه در وضعیت `QUEUED` می‌مانند و trigger سبک WorkManager آن‌ها با backoff دوباره تلاش می‌کند تا وقتی که واقعاً وارد صف دانلود فعال شوند. بنابراین حتی وقتی UI اپ بسته است، با آزاد شدن slot بعدی، دانلودهای زمان‌بندی‌شده عقب‌مانده دوباره بررسی و شروع می‌شوند.
 
 نمونه زمان‌بندی برای 30 دقیقه بعد فقط روی Wi-Fi و هنگام شارژ:
 

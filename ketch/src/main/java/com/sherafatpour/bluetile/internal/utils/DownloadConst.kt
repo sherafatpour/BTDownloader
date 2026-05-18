@@ -20,6 +20,7 @@ internal object DownloadConst {
     const val KEY_DOWNLOAD_CONFIG = "key_download_config"
     const val KEY_NOTIFICATION_CONFIG = "key_notification_config"
     const val UNIQUE_SCHEDULE_WORK_PREFIX = "bt_schedule_"
+    const val SCHEDULE_QUEUE_RETRY_BACKOFF_MS = 10000L
     const val ETAG_HEADER = "ETag"
     const val CONTENT_LENGTH = "Content-Length"
     const val RANGE_HEADER = "Range"

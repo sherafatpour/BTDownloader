@@ -204,18 +204,20 @@ internal class DownloadWorker(
                 }
             }
 
-            downloadDao.find(id)?.copy(
-                totalBytes = totalLength,
-                status = Status.SUCCESS.toString(),
-                uuid = "",
-                failureReason = "",
-                errorType = DownloadError.NONE.toString(),
-                lastModified = System.currentTimeMillis()
-            )?.let { downloadDao.update(it) }
+            withContext(NonCancellable) {
+                downloadDao.find(id)?.copy(
+                    totalBytes = totalLength,
+                    status = Status.SUCCESS.toString(),
+                    uuid = "",
+                    failureReason = "",
+                    errorType = DownloadError.NONE.toString(),
+                    lastModified = System.currentTimeMillis()
+                )?.let { downloadDao.update(it) }
 
-            downloadNotificationManager?.sendDownloadSuccessNotification(totalLength, notificationParameter)
+                downloadNotificationManager?.sendDownloadSuccessNotification(totalLength, notificationParameter)
 
-            scheduleNextQueuedDownload(downloadConfig, notificationConfig)
+                scheduleNextQueuedDownload(downloadConfig, notificationConfig)
+            }
 
             Result.success()
         } catch (e: Exception) {
@@ -275,11 +277,14 @@ internal class DownloadWorker(
                         )
                     }
                 }
+
+                if (!shouldRetry) {
+                    scheduleNextQueuedDownload(downloadConfig, notificationConfig)
+                }
             }
             if (shouldRetry) {
                 return Result.retry()
             }
-            scheduleNextQueuedDownload(downloadConfig, notificationConfig)
             Result.failure(
                 workDataOf(ExceptionConst.KEY_EXCEPTION to e.message)
             )

@@ -24,9 +24,13 @@ import com.sherafatpour.bluetile.internal.utils.WorkUtil
 import com.sherafatpour.bluetile.internal.utils.WorkUtil.toJson
 import com.sherafatpour.bluetile.internal.worker.DownloadScheduleWorker
 import com.sherafatpour.bluetile.internal.worker.DownloadWorker
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.TimeUnit
 
 internal object DownloadWorkCoordinator {
+
+    private val queueMutex = Mutex()
 
     fun downloadWorkName(id: Int): String = id.toString()
 
@@ -50,6 +54,11 @@ internal object DownloadWorkCoordinator {
             )
             .addTag(DownloadConst.TAG_SCHEDULED_DOWNLOAD)
             .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setBackoffCriteria(
+                BackoffPolicy.LINEAR,
+                DownloadConst.SCHEDULE_QUEUE_RETRY_BACKOFF_MS,
+                TimeUnit.MILLISECONDS
+            )
             .build()
 
         downloadDao.update(
@@ -71,7 +80,7 @@ internal object DownloadWorkCoordinator {
         workManager: WorkManager,
         downloadConfig: DownloadConfig,
         notificationConfig: NotificationConfig
-    ) {
+    ) = queueMutex.withLock {
         val activeCount = downloadDao.countScheduledEntity(
             listOf(
                 Status.SCHEDULED.toString(),
@@ -85,7 +94,10 @@ internal object DownloadWorkCoordinator {
         downloadDao.getPendingEntity(Status.QUEUED.toString())
             .take(availableSlots)
             .forEach { entity ->
-                enqueueDownload(entity, downloadDao, workManager, downloadConfig, notificationConfig)
+                val latestEntity = downloadDao.find(entity.id) ?: return@forEach
+                if (latestEntity.status == Status.QUEUED.toString() && latestEntity.uuid.isEmpty()) {
+                    enqueueDownload(latestEntity, downloadDao, workManager, downloadConfig, notificationConfig)
+                }
             }
     }
 
