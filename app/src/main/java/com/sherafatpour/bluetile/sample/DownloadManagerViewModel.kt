@@ -50,12 +50,13 @@ class DownloadManagerViewModel(
     }
 
     private fun enqueueQuick() {
-        btDownloader.download(
+        val id = btDownloader.download(
             url = "https://www.gstatic.com/webp/gallery/1.jpg",
             path = downloadPath,
             fileName = "quick_${System.currentTimeMillis()}.jpg",
             priority = DownloadPriority.NORMAL
         )
+        btDownloader.startNow(id)
     }
 
     private fun scheduleQuick() {
@@ -96,13 +97,14 @@ class DownloadManagerViewModel(
                 constraints = constraints
             )
         } else {
-            btDownloader.download(
+            val id = btDownloader.download(
                 url = input.url,
                 path = downloadPath,
                 fileName = resolvedFileName,
                 priority = input.priority,
                 constraints = constraints
             )
+            btDownloader.startNow(id)
         }
         _uiState.update { it.copy(showAddDialog = false) }
     }

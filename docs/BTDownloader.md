@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.0'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.1'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.0")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.1")
 }
 ```
 
-این مختصات برای release tag `1.1.0` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.1` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.1.0
+1.1.1
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.1.0
+git tag 1.1.1
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.0
+git push origin 1.1.1
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.0
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.1
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
@@ -171,9 +171,26 @@ viewLifecycleOwner.lifecycleScope.launch {
 
 خود کتابخانه مسیر ذخیره‌سازی را از caller می‌گیرد، پس برنامه باید قبل از دانلود مطمئن شود که به مسیر انتخاب‌شده دسترسی دارد.
 
+BTDownloader این permissionهای اصلی را در manifest خود کتابخانه declare می‌کند و در حالت عادی با manifest اپ مصرف‌کننده merge می‌شوند:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+مسئولیت‌های اپ مصرف‌کننده:
+
+- برای notification در Android 13 به بعد، `POST_NOTIFICATIONS` باید در runtime از کاربر درخواست شود.
+- مسیر مقصد باید قبل از شروع دانلود writable و آماده باشد.
 - برای مسیرهای app-specific معمولا نیاز به permission جداگانه نیست.
 - اگر برنامه به Storage Access Framework نیاز دارد، انتخاب document/tree، گرفتن permission، persist کردن URI permission و تبدیل آن به مقصد قابل نوشتن باید در خود اپلیکیشن مصرف‌کننده انجام شود. BTDownloader عمدا UI یا permission flow مربوط به SAF را مدیریت نمی‌کند تا در پروژه‌های مختلف قابل استفاده بماند.
-- برای notification در Android 13 به بعد، permission زیر را در manifest بگذارید و runtime request انجام دهید:
+- اگر برنامه روی نسخه‌های قدیمی Android از shared external storage legacy استفاده می‌کند، permissionهای storage مربوط به همان اپ باید در لایه اپ مدیریت شوند. خود BTDownloader برای مسیرهای app-specific به storage permission نیاز ندارد.
+
+WorkManager ممکن است permissionها و receiverهای داخلی مثل `ACCESS_NETWORK_STATE`, `WAKE_LOCK` و `RECEIVE_BOOT_COMPLETED` را از manifestهای transitive merge کند. معمولا لازم نیست این موارد را دستی اضافه کنید.
+
+نمونه runtime request برای notification:
 
 ```xml
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -239,6 +256,17 @@ NotificationConfig(
 اگر `enabled = true` باشد، `smallIcon` باید یک drawable معتبر، تک‌رنگ و مناسب status bar باشد. از adaptive launcher icon یا launcher foreground برای notification استفاده نکنید. notificationها برای progress، pause، cancel، failed و success ساخته می‌شوند.
 
 BTDownloader قبل از ارسال notification، permission `POST_NOTIFICATIONS` در Android 13+ و فعال بودن notificationهای اپ را بررسی می‌کند. درخواست permission همچنان مسئولیت اپلیکیشن مصرف‌کننده است. برای اینکه actionهای notification بعد از process recreation هم config درست داشته باشند، BTDownloader را در `Application.onCreate()` با config اصلی برنامه initialize کنید.
+
+### رفتار notification در background و وقتی اپ بسته است
+
+BTDownloader می‌تواند هنگام بسته بودن UI اپلیکیشن، دانلود فعال را با WorkManager ادامه دهد و notification پیشرفت را نمایش دهد. actionهای notification مثل pause، resume، retry و cancel هم در حالت بسته بودن اپ پشتیبانی می‌شوند؛ receiver عملیات را با `goAsync()` زنده نگه می‌دارد، action را تا پایان await می‌کند و بعد از pause/cancel، slot آزادشده را برای دانلودهای صف‌شده بررسی می‌کند.
+
+برای اینکه این رفتار قابل اتکا باشد:
+
+- `BTDownloader` را در `Application.onCreate()` initialize کنید.
+- اگر notification فعال است، روی Android 13+ قبل از دانلود `POST_NOTIFICATIONS` را از کاربر بگیرید.
+- `NotificationConfig.enabled = true` باشد و `smallIcon` معتبر تنظیم شده باشد.
+- اگر دانلود schedule یا constraint دارد، WorkManager فقط وقتی شرایط مثل Wi-Fi، شارژ، backoff و محدودیت‌های battery برقرار باشند worker را شروع می‌کند؛ بنابراین notification هم بعد از شروع واقعی worker نمایش داده می‌شود.
 
 اگر notification نمایش داده نشود، logcat را با tag `BTDownloaderNotification` بررسی کنید. کتابخانه در صورت نبود permission، خاموش بودن notificationهای اپ، تنظیم نشدن `smallIcon`، یا رد شدن foreground notification توسط Android دلیل را log می‌کند و خود دانلود را متوقف نمی‌کند.
 

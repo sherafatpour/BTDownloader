@@ -46,7 +46,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-1.1.0
+1.1.1
 ```
 
 Add JitPack:
@@ -66,7 +66,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.0'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.1'
 }
 ```
 
@@ -74,11 +74,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.0")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.1")
 }
 ```
 
-JitPack builds this repository from the release tag `1.1.0`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.1.1`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -101,7 +101,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour:BTDownloader:1.1.0
+com.github.sherafatpour:BTDownloader:1.1.1
 ```
 
 Release checklist:
@@ -109,15 +109,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 1.1.0
+git tag 1.1.1
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.0
+git push origin 1.1.1
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.0
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.1
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -128,9 +128,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `BTDownloader-1.1.0.aar`
-- `BTDownloader-1.1.0.pom`
-- `BTDownloader-1.1.0-sources.jar`
+- `BTDownloader-1.1.1.aar`
+- `BTDownloader-1.1.1.pom`
+- `BTDownloader-1.1.1-sources.jar`
 
 ## Quick Start
 
@@ -360,6 +360,27 @@ Recommended patterns:
 - Persist URI permissions in the app layer.
 - Convert the app-owned destination to a path only when that is valid for your storage model.
 
+## Required Permissions
+
+BTDownloader declares the core download permissions in the library manifest, so they are normally merged into the consuming app automatically:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+What the app still needs to handle:
+
+- Request `POST_NOTIFICATIONS` at runtime on Android 13+ if notifications are enabled.
+- Provide a writable destination path before calling BTDownloader.
+- Use app-specific storage when possible; it usually needs no storage permission.
+- Use SAF or MediaStore in the app layer when the user chooses shared storage or public media locations.
+- Add legacy storage permissions only if your own app targets old shared external storage behavior on older Android versions. BTDownloader itself does not require them.
+
+WorkManager may also merge its own internal permissions/receivers such as `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, and `RECEIVE_BOOT_COMPLETED` through transitive manifests. You usually do not need to add those manually.
+
 ## Notifications
 
 Add notification permission for Android 13+:
@@ -396,6 +417,17 @@ BTDownloader checks `POST_NOTIFICATIONS` on Android 13+ and skips notification p
 Use a real monochrome status-bar drawable for `smallIcon`; do not pass an adaptive launcher icon or launcher foreground asset. If a notification is skipped or Android rejects the foreground notification, BTDownloader writes the reason to logcat with the `BTDownloaderNotification` tag while the download continues.
 
 Initialize BTDownloader in `Application.onCreate()` before notification actions are used. Android may deliver notification broadcasts after process recreation, and the singleton should be rebuilt with the same app-level config.
+
+### Background And Closed-App Behavior
+
+BTDownloader can continue downloads and show foreground progress notifications while the app UI is closed because active downloads run through WorkManager. Notification action buttons also work when the app process has been recreated: the receiver keeps the broadcast alive while it awaits pause, resume, retry, or cancel, then lets BTDownloader schedule the next queued item when a slot is freed.
+
+For reliable closed-app behavior:
+
+- Initialize `BTDownloader` in `Application.onCreate()`.
+- Grant `POST_NOTIFICATIONS` before starting downloads when notifications are enabled on Android 13+.
+- Keep `NotificationConfig.enabled = true` and provide a valid `smallIcon`.
+- Remember that scheduled or constrained work only starts when WorkManager actually runs it; Wi-Fi, charging, retry backoff, battery restrictions, and OEM background limits can delay execution.
 
 If notifications do not appear in the consuming app, check these first:
 

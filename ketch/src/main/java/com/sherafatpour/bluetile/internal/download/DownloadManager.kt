@@ -9,6 +9,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.await
 import com.sherafatpour.bluetile.DownloadConfig
 import com.sherafatpour.bluetile.DownloadConstraints
 import com.sherafatpour.bluetile.DownloadModel
@@ -488,7 +489,19 @@ internal class DownloadManager(
                 ).sendDownloadCancelledNotification()
             }
         }
-        workManager.cancelUniqueWork(id.toString())
+        workManager.cancelUniqueWork(id.toString()).await()
+        val latest = downloadDao.find(id)
+        if (latest?.userAction == UserAction.CANCEL.toString() && latest.status.isActiveDownloadStatus()) {
+            downloadDao.update(
+                latest.copy(
+                    status = Status.CANCELLED.toString(),
+                    uuid = "",
+                    lastModified = System.currentTimeMillis()
+                )
+            )
+            deleteDownloadFiles(latest.path, latest.fileName)
+        }
+        scheduleQueuedDownloads()
     }
 
     private suspend fun pause(id: Int) {
@@ -502,7 +515,18 @@ internal class DownloadManager(
                 )
             )
         }
-        workManager.cancelUniqueWork(id.toString())
+        workManager.cancelUniqueWork(id.toString()).await()
+        val latest = downloadDao.find(id)
+        if (latest?.userAction == UserAction.PAUSE.toString() && latest.status.isActiveDownloadStatus()) {
+            downloadDao.update(
+                latest.copy(
+                    status = Status.PAUSED.toString(),
+                    uuid = "",
+                    lastModified = System.currentTimeMillis()
+                )
+            )
+        }
+        scheduleQueuedDownloads()
     }
 
     private suspend fun retry(id: Int) {
@@ -672,6 +696,10 @@ internal class DownloadManager(
         }
     }
 
+    suspend fun resumeAwait(id: Int) {
+        resume(id)
+    }
+
     fun resumeAsync(tag: String) {
         scope.launch {
             downloadDao.getAllEntity().forEach {
@@ -694,6 +722,10 @@ internal class DownloadManager(
         scope.launch {
             cancel(id)
         }
+    }
+
+    suspend fun cancelAwait(id: Int) {
+        cancel(id)
     }
 
     fun cancelAsync(tag: String) {
@@ -720,6 +752,10 @@ internal class DownloadManager(
         }
     }
 
+    suspend fun pauseAwait(id: Int) {
+        pause(id)
+    }
+
     fun pauseAsync(tag: String) {
         scope.launch {
             downloadDao.getAllEntity().forEach {
@@ -742,6 +778,10 @@ internal class DownloadManager(
         scope.launch {
             retry(id)
         }
+    }
+
+    suspend fun retryAwait(id: Int) {
+        retry(id)
     }
 
     fun retryAsync(tag: String) {

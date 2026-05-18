@@ -14,6 +14,10 @@ import com.sherafatpour.bluetile.BTDownloader
 import com.sherafatpour.bluetile.internal.utils.DownloadConst
 import com.sherafatpour.bluetile.internal.utils.NotificationConst
 import com.sherafatpour.bluetile.internal.utils.TextUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Notification receiver: Responsible for showing the terminating state notification (paused, cancelled, failed)
@@ -28,7 +32,6 @@ internal class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
 
         if (context == null || intent == null) return
-        val ketch = BTDownloader.builder().build(context)
         val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
         // Resume the download and dismiss the notification
@@ -38,7 +41,7 @@ internal class NotificationReceiver : BroadcastReceiver() {
             val nId = intent.extras?.getInt(NotificationConst.KEY_NOTIFICATION_ID)
             if (nId != null) NotificationManagerCompat.from(context).cancel(nId)
             if (requestId != null) {
-                ketch.resume(requestId)
+                runDownloadActionAsync(context) { resumeAwait(requestId) }
             }
             return
         }
@@ -50,7 +53,7 @@ internal class NotificationReceiver : BroadcastReceiver() {
             val nId = intent.extras?.getInt(NotificationConst.KEY_NOTIFICATION_ID)
             if (nId != null) NotificationManagerCompat.from(context).cancel(nId)
             if (requestId != null) {
-                ketch.retry(requestId)
+                runDownloadActionAsync(context) { retryAwait(requestId) }
             }
             return
         }
@@ -62,7 +65,7 @@ internal class NotificationReceiver : BroadcastReceiver() {
             val nId = intent.extras?.getInt(NotificationConst.KEY_NOTIFICATION_ID)
             if (nId != null) NotificationManagerCompat.from(context).cancel(nId)
             if (requestId != null) {
-                ketch.pause(requestId)
+                runDownloadActionAsync(context) { pauseAwait(requestId) }
             }
             return
         }
@@ -74,7 +77,7 @@ internal class NotificationReceiver : BroadcastReceiver() {
             val nId = intent.extras?.getInt(NotificationConst.KEY_NOTIFICATION_ID)
             if (nId != null) NotificationManagerCompat.from(context).cancel(nId)
             if (requestId != null) {
-                ketch.cancel(requestId)
+                runDownloadActionAsync(context) { cancelAwait(requestId) }
             }
             return
         }
@@ -258,5 +261,19 @@ internal class NotificationReceiver : BroadcastReceiver() {
         )
         channel.description = notificationChannelDescription
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun runDownloadActionAsync(
+        context: Context,
+        action: suspend BTDownloader.() -> Unit
+    ) {
+        val pendingResult = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                BTDownloader.builder().build(context.applicationContext).action()
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 }

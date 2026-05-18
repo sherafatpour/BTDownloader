@@ -292,6 +292,10 @@ class BTDownloader private constructor(
         downloadManager.cancelAsync(id)
     }
 
+    internal suspend fun cancelAwait(id: Int) {
+        downloadManager.cancelAwait(id)
+    }
+
     /**
      * Cancel downloads with given [tag]
      *
@@ -347,6 +351,10 @@ class BTDownloader private constructor(
         downloadManager.pauseAsync(id)
     }
 
+    internal suspend fun pauseAwait(id: Int) {
+        downloadManager.pauseAwait(id)
+    }
+
     /**
      * Pause downloads with given [tag]
      *
@@ -373,6 +381,10 @@ class BTDownloader private constructor(
         downloadManager.resumeAsync(id)
     }
 
+    internal suspend fun resumeAwait(id: Int) {
+        downloadManager.resumeAwait(id)
+    }
+
     /**
      * Resume downloads with given [tag]
      *
@@ -397,6 +409,10 @@ class BTDownloader private constructor(
      */
     fun retry(id: Int) {
         downloadManager.retryAsync(id)
+    }
+
+    internal suspend fun retryAwait(id: Int) {
+        downloadManager.retryAwait(id)
     }
 
     /**

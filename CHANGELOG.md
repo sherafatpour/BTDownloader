@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.1 - 2026-05-18
+
+### Fixed
+
+- Fixed notification pause, resume, retry, and cancel actions when the app process is closed by keeping the broadcast alive with `goAsync()` until the download action completes.
+- Fixed queue recovery after background pause/cancel so the next queued download can be scheduled even when no UI observer is alive.
+- Updated the Compose sample so immediate user-created downloads call `startNow(id)` after enqueue.
+
+### Documentation
+
+- Documented required permissions for consuming apps.
+- Documented notification/background behavior when the app UI is closed or the process is recreated.
+
 ## 1.1.0 - 2026-05-18
 
 ### Added
