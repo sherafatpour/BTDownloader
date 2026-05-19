@@ -1,6 +1,11 @@
 package com.sherafatpour.bluetile.internal.download
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.os.Build
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.await
@@ -49,6 +54,7 @@ internal class DownloadManager(
     private val logger: Logger
 ) {
     private val preemptedByManualStart = mutableMapOf<Int, Int>()
+    private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         logger.log(
@@ -57,8 +63,20 @@ internal class DownloadManager(
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            scope.launch { scheduleQueuedDownloads() }
+        }
+
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                scope.launch { scheduleQueuedDownloads() }
+            }
+        }
+    }
 
     init {
+        registerNetworkCallback()
 
         scope.launch {
             // Observe work infos, only for logging purpose
@@ -174,6 +192,21 @@ internal class DownloadManager(
                         }
                     }
                 }
+        }
+    }
+
+    private fun registerNetworkCallback() {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                connectivityManager?.registerDefaultNetworkCallback(networkCallback)
+            } else {
+                val request = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                connectivityManager?.registerNetworkCallback(request, networkCallback)
+            }
+        }.onFailure {
+            logger.log(msg = "Unable to register network callback: ${it.message}")
         }
     }
 

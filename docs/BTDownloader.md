@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.5'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.6'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.5")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.6")
 }
 ```
 
-این مختصات برای release tag `1.1.5` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.6` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.1.5
+1.1.6
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.1.5
+git tag 1.1.6
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.5
+git push origin 1.1.6
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.5
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.6
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
@@ -404,6 +404,8 @@ fun schedule(
 علاوه بر trigger هر دانلود زمان‌بندی‌شده، BTDownloader تا وقتی آیتم `QUEUED` باقی مانده باشد یک queue-drain worker یکتا هم فعال نگه می‌دارد. این worker نقش safety net دارد: اگر اپ بسته باشد و بعد از completion، pause، cancel یا failure یک slot آزاد شود، صف دوباره dispatch می‌شود حتی اگر هیچ صفحه‌ای در حال observe کردن state نباشد.
 
 وقتی یک آیتم queued واقعاً برای دانلود پذیرفته می‌شود، BTDownloader هر WorkManager work قدیمی و ناتمام با همان download id را replace می‌کند. این کار جلوی edge case مربوط به `KEEP` را می‌گیرد؛ حالتی که WorkManager می‌تواند به خاطر یک unique work قدیمی، دانلود جدید را نادیده بگیرد و آیتم زمان‌بندی‌شده فقط در صف دیده شود.
+
+BTDownloader همچنین تغییرات اتصال شبکه را هم مانیتور می‌کند و وقتی اینترنت برگردد، queuedها را بلافاصله دوباره dispatch می‌کند. به این ترتیب اگر در دوره قطعی شبکه دانلودها وارد صف شده باشند، بعد از آنلاین شدن بدون نیاز به اکشن دستی دوباره برای دانلود تلاش می‌شوند.
 
 نمونه زمان‌بندی برای 30 دقیقه بعد فقط روی Wi-Fi و هنگام شارژ:
 

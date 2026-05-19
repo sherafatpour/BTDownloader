@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.6 - 2026-05-19
+
+### Fixed
+
+- Added network availability callback dispatch in `DownloadManager` so queued downloads are re-dispatched immediately when internet connectivity returns.
+- Improved recovery for app-open scenarios where downloads could remain queued after temporary network loss.
+
 ## 1.1.5 - 2026-05-18
 
 ### Fixed
