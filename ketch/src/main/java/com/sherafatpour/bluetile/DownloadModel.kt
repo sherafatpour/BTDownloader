@@ -43,5 +43,6 @@ data class DownloadModel(
     val runAttemptCount: Int = 0,
     val maxRetries: Int = 0,
     val errorType: DownloadError = DownloadError.NONE,
-    val checksum: DownloadChecksum? = null
+    val checksum: DownloadChecksum? = null,
+    val isScheduledRequest: Boolean = false
 )

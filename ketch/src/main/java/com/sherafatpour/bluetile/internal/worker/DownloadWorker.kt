@@ -107,8 +107,6 @@ internal class DownloadWorker(
                 )?.let { downloadDao.update(it) }
             }
 
-            var progressPercentage = 0
-
             val totalLength = DownloadTask(
                 url = url,
                 path = dirPath,
@@ -150,21 +148,15 @@ internal class DownloadWorker(
                         0
                     }
 
-                    if (progressPercentage != progress || length == 0L) {
-
-                        progressPercentage = progress
-
-                        downloadDao.find(id)?.copy(
-                            downloadedBytes = downloadedBytes,
-                            speedInBytePerMs = speed,
-                            status = Status.PROGRESS.toString(),
-                            failureReason = "",
-                            errorType = DownloadError.NONE.toString(),
-                            runAttemptCount = runAttemptCount + 1,
-                            lastModified = System.currentTimeMillis()
-                        )?.let { downloadDao.update(it) }
-
-                    }
+                    downloadDao.find(id)?.copy(
+                        downloadedBytes = downloadedBytes,
+                        speedInBytePerMs = speed,
+                        status = Status.PROGRESS.toString(),
+                        failureReason = "",
+                        errorType = DownloadError.NONE.toString(),
+                        runAttemptCount = runAttemptCount + 1,
+                        lastModified = System.currentTimeMillis()
+                    )?.let { downloadDao.update(it) }
 
                     setProgress(
                         workDataOf(
@@ -258,7 +250,7 @@ internal class DownloadWorker(
 
                     val failedEntity = downloadDao.find(id)
                     failedEntity?.copy(
-                            status = if (shouldRetry) Status.SCHEDULED.toString() else Status.FAILED.toString(),
+                            status = if (shouldRetry) Status.QUEUED.toString() else Status.FAILED.toString(),
                             uuid = if (shouldRetry) failedEntity.uuid else "",
                             failureReason = e.message ?: e::class.java.simpleName,
                             errorType = e.toDownloadError().toString(),

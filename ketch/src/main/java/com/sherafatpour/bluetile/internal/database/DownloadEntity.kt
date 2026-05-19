@@ -43,6 +43,7 @@ internal data class DownloadEntity(
     var backoffPolicy: String = BTDownloaderBackoffPolicy.EXPONENTIAL.toString(),
     var scheduledAtEpochMs: Long = 0L,
     var runAttemptCount: Int = 0,
+    var isScheduledRequest: Boolean = false,
     var checksumAlgorithm: String = "",
     var checksumValue: String = "",
     var errorType: String = DownloadError.NONE.toString(),

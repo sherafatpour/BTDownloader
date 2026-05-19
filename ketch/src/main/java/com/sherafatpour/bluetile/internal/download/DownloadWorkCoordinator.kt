@@ -120,12 +120,13 @@ internal object DownloadWorkCoordinator {
     ) = queueMutex.withLock {
         val activeCount = downloadDao.countScheduledEntity(
             listOf(
+                Status.QUEUED.toString(),
                 Status.SCHEDULED.toString(),
                 Status.STARTED.toString(),
                 Status.PROGRESS.toString()
             )
         )
-        val availableSlots = (downloadConfig.maxConcurrentDownloads - activeCount).coerceAtLeast(0)
+        val availableSlots = DownloadStatePolicy.availableSlots(downloadConfig.maxConcurrentDownloads, activeCount)
         val pendingBeforeDispatch = downloadDao.getPendingEntity(Status.QUEUED.toString())
         if (availableSlots == 0) {
             return@withLock QueueDispatchResult(
@@ -183,7 +184,7 @@ internal object DownloadWorkCoordinator {
         downloadDao.update(
             downloadEntity.copy(
                 uuid = downloadWorkRequest.id.toString(),
-                status = Status.SCHEDULED.toString(),
+                status = Status.QUEUED.toString(),
                 lastModified = System.currentTimeMillis()
             )
         )

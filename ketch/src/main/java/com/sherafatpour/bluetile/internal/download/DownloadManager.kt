@@ -87,7 +87,7 @@ internal class DownloadManager(
                             WorkInfo.State.ENQUEUED -> {
                                 val downloadEntity = findDownloadEntityFromUUID(workInfo.id)
                                 downloadEntity?.copy(
-                                    status = Status.SCHEDULED.toString(),
+                                    status = Status.QUEUED.toString(),
                                     lastModified = System.currentTimeMillis()
                                 )?.let { downloadDao.update(it) }
                                 logger.log(
@@ -224,12 +224,12 @@ internal class DownloadManager(
         } else {
             downloadRequest
         }
-        val isFutureScheduled = effectiveRequest.scheduledAtEpochMs?.let { it > System.currentTimeMillis() } == true
-        val requestedInitialStatus = if (isFutureScheduled) {
-            Status.SCHEDULED.toString()
-        } else {
-            Status.QUEUED.toString()
-        }
+        val isFutureScheduled = DownloadStatePolicy.isFutureScheduled(effectiveRequest.scheduledAtEpochMs)
+        val scheduledAtEpochMs = DownloadStatePolicy.normalizedScheduledAt(
+            scheduledAtEpochMs = effectiveRequest.scheduledAtEpochMs,
+            isFutureScheduled = isFutureScheduled
+        )
+        val requestedInitialStatus = DownloadStatePolicy.initialStatusForRequest(isFutureScheduled)
 
         // Checks if download id already present in database
         val existingEntity = downloadDao.find(effectiveRequest.id)
@@ -270,7 +270,8 @@ internal class DownloadManager(
                     maxRetries = effectiveRequest.retryPolicy.maxRetries,
                     backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
                     backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
-                    scheduledAtEpochMs = effectiveRequest.scheduledAtEpochMs ?: 0L,
+                    scheduledAtEpochMs = scheduledAtEpochMs,
+                    isScheduledRequest = isFutureScheduled,
                     checksumAlgorithm = effectiveRequest.checksum?.algorithm?.name.orEmpty(),
                     checksumValue = effectiveRequest.checksum?.value.orEmpty(),
                     errorType = if (shouldQueueAgain) DownloadError.NONE.toString() else existingEntity.errorType,
@@ -303,7 +304,8 @@ internal class DownloadManager(
                     maxRetries = effectiveRequest.retryPolicy.maxRetries,
                     backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
                     backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
-                    scheduledAtEpochMs = effectiveRequest.scheduledAtEpochMs ?: 0L,
+                    scheduledAtEpochMs = scheduledAtEpochMs,
+                    isScheduledRequest = isFutureScheduled,
                     checksumAlgorithm = effectiveRequest.checksum?.algorithm?.name.orEmpty(),
                     checksumValue = effectiveRequest.checksum?.value.orEmpty(),
                     autoRenameIfExists = effectiveRequest.autoRenameIfExists
@@ -360,46 +362,19 @@ internal class DownloadManager(
     }
 
     private suspend fun resume(id: Int) {
-        val downloadEntity = downloadDao.find(id)
-        if (downloadEntity != null) {
-            downloadDao.update(
-                downloadEntity.copy(
-                    userAction = UserAction.RESUME.toString(),
-                    lastModified = System.currentTimeMillis()
-                )
-            )
-            download(
-                DownloadRequest(
-                    url = downloadEntity.url,
-                    path = downloadEntity.path,
-                    fileName = downloadEntity.fileName,
-                    tag = downloadEntity.tag,
-                    id = downloadEntity.id,
-                    headers = WorkUtil.jsonToHashMap(downloadEntity.headersJson),
-                    metaData = downloadEntity.metaData,
-                    notificationParameter = downloadEntity.notificationParameter,
-                    notificationTitle = downloadEntity.notificationTitle,
-                    priority = com.sherafatpour.bluetile.DownloadPriority.entries.find { it.value == downloadEntity.priority }
-                        ?: com.sherafatpour.bluetile.DownloadPriority.NORMAL,
-                    constraints = DownloadConstraints(
-                        networkType = BTDownloaderNetworkType.entries.find { it.name == downloadEntity.networkType }
-                            ?: BTDownloaderNetworkType.CONNECTED,
-                        requiresCharging = downloadEntity.requiresCharging,
-                        requiresBatteryNotLow = downloadEntity.requiresBatteryNotLow,
-                        requiresStorageNotLow = downloadEntity.requiresStorageNotLow
-                    ),
-                    retryPolicy = RetryPolicy(
-                        maxRetries = downloadEntity.maxRetries,
-                        backoffDelayInMs = downloadEntity.backoffDelayInMs,
-                        backoffPolicy = BTDownloaderBackoffPolicy.entries.find { it.name == downloadEntity.backoffPolicy }
-                            ?: BTDownloaderBackoffPolicy.EXPONENTIAL
-                    ),
-                    scheduledAtEpochMs = downloadEntity.scheduledAtEpochMs.takeIf { it > 0L },
-                    checksum = downloadEntity.toChecksum(),
-                    autoRenameIfExists = downloadEntity.autoRenameIfExists
-                )
-            )
+        val downloadEntity = downloadDao.find(id) ?: return
+        if (downloadEntity.status != Status.PAUSED.toString()) {
+            return
         }
+        downloadDao.update(
+            downloadEntity.copy(
+                status = Status.QUEUED.toString(),
+                uuid = "",
+                userAction = UserAction.RESUME.toString(),
+                lastModified = System.currentTimeMillis()
+            )
+        )
+        scheduleQueuedDownloads()
     }
 
     private suspend fun cancel(id: Int) {
@@ -540,9 +515,29 @@ internal class DownloadManager(
         ) {
             workManager.cancelUniqueWork(DownloadWorkCoordinator.scheduleWorkName(id)).await()
         }
-        if (target.status == Status.STARTED.toString() || target.status == Status.PROGRESS.toString()) {
-            setPriority(id, targetPriority)
-            return
+        when (DownloadStatePolicy.startNowActionFor(target.status)) {
+            DownloadStatePolicy.StartNowAction.RESUME_FROM_PAUSED -> {
+                downloadDao.update(
+                    target.copy(
+                        priority = targetPriority.value,
+                        lastModified = System.currentTimeMillis()
+                    )
+                )
+                resume(id)
+                return
+            }
+
+            DownloadStatePolicy.StartNowAction.PRIORITIZE_ACTIVE -> {
+                setPriority(id, targetPriority)
+                return
+            }
+
+            DownloadStatePolicy.StartNowAction.NO_OP_TERMINAL -> {
+                logger.log(msg = "startNow no-op for terminal status ${target.status}, ID: $id")
+                return
+            }
+
+            DownloadStatePolicy.StartNowAction.START_IMMEDIATELY -> {}
         }
 
         val activeDownloads = downloadDao.getAllEntity().filter {
@@ -572,16 +567,16 @@ internal class DownloadManager(
                 priority = targetPriority.value,
                 userAction = UserAction.START.toString(),
                 status = if (updatedTarget.status == Status.PAUSED.toString() ||
-                    updatedTarget.status == Status.FAILED.toString() ||
-                    updatedTarget.status == Status.SCHEDULED.toString()
+                    updatedTarget.status == Status.SCHEDULED.toString() ||
+                    updatedTarget.status == Status.DEFAULT.toString()
                 ) {
                     Status.QUEUED.toString()
                 } else {
                     updatedTarget.status
                 },
                 uuid = if (updatedTarget.status == Status.PAUSED.toString() ||
-                    updatedTarget.status == Status.FAILED.toString() ||
-                    updatedTarget.status == Status.SCHEDULED.toString()
+                    updatedTarget.status == Status.SCHEDULED.toString() ||
+                    updatedTarget.status == Status.DEFAULT.toString()
                 ) {
                     ""
                 } else {

@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.6'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.7'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.6")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.7")
 }
 ```
 
-این مختصات برای release tag `1.1.6` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.7` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.1.6
+1.1.7
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.1.6
+git tag 1.1.7
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.6
+git push origin 1.1.7
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.6
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.7
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
@@ -429,7 +429,7 @@ btDownload.startNow(id)
 
 ### صف، priority و concurrency
 
-هر دانلود ابتدا در Room با وضعیت `QUEUED` ثبت می‌شود. سپس `DownloadManager` بر اساس سه معیار آن را schedule می‌کند:
+دانلود فوری با وضعیت `QUEUED` ثبت می‌شود. دانلودی که با زمان آینده ثبت شده باشد ابتدا `SCHEDULED` است و در زمان موعد به `QUEUED` منتقل می‌شود. سپس `DownloadManager` بر اساس سه معیار dispatch می‌کند:
 
 1. سقف `DownloadConfig.maxConcurrentDownloads`
 2. مقدار `DownloadPriority`
@@ -461,7 +461,12 @@ btDownload.setPriority(id, DownloadPriority.HIGH)
 btDownload.startNow(id)
 ```
 
-`startNow(id)` اگر slot خالی داشته باشد همان لحظه دانلود را شروع می‌کند. اگر slot پر باشد، یک دانلود فعال با اولویت پایین‌تر pause می‌شود، دانلود دستی شروع می‌شود، و بعد از رسیدن دانلود دستی به وضعیت terminal، دانلود pause‌شده به‌صورت خودکار resume می‌شود.
+`startNow(id)` رفتار وابسته به وضعیت دارد:
+
+- اگر آیتم `PAUSED` باشد: مثل resume رفتار می‌کند و از همان `.bt` ادامه می‌دهد (restart از صفر نیست).
+- اگر `QUEUED` یا `SCHEDULED` یا `DEFAULT` باشد: مسیر شروع فوری را فعال می‌کند.
+- اگر `STARTED` یا `PROGRESS` باشد: فقط priority بالا می‌رود.
+- اگر `SUCCESS` یا `FAILED` یا `CANCELLED` باشد: no-op است و restart خودکار انجام نمی‌شود.
 
 `clearDb(timeInMillis)` همه رکوردها و فایل‌هایی را پاک می‌کند که `lastModified` آنها برابر یا قدیمی‌تر از timestamp داده‌شده است.
 
@@ -480,7 +485,7 @@ fun observeDownloadByTag(tag: String): Flow<List<DownloadModel>>
 suspend fun getAllDownloads(): List<DownloadModel>
 ```
 
-`Flow`ها مستقیما از Room می‌آیند و با تغییر وضعیت دانلود، مقدار جدید emit می‌کنند.
+`Flow`ها مستقیما از Room می‌آیند و با تغییر وضعیت/پیشرفت/سرعت/حجم دانلود emit می‌شوند؛ برای حرکت progress نیازی به polling با `getAllDownloads()` نیست.
 
 ### بررسی metadata فایل remote
 
@@ -521,7 +526,8 @@ suspend fun getContentLength(
 | `failureReason` | پیام خطا در وضعیت failed |
 | `errorType` | دسته‌بندی پایدار خطا مثل `NETWORK`, `STORAGE`, `SERVER`, `CHECKSUM` |
 | `priority` | اولویت زمان‌بندی دانلود |
-| `scheduledAtEpochMs` | زمان برنامه‌ریزی‌شده دانلود، اگر با `schedule(...)` ثبت شده باشد |
+| `scheduledAtEpochMs` | زمان برنامه‌ریزی‌شده دانلود، فقط برای schedule واقعی آینده‌دار معنا دارد |
+| `isScheduledRequest` | آیا دانلود از مسیر `schedule(...)` ثبت شده است یا خیر |
 | `runAttemptCount` | تعداد تلاش‌های WorkManager برای job فعلی |
 | `maxRetries` | سقف retry خودکار |
 | `checksum` | checksum مورد انتظار، در صورت تعریف شدن |
@@ -529,17 +535,17 @@ suspend fun getContentLength(
 ## وضعیت‌ها
 
 ```text
-QUEUED -> SCHEDULED -> STARTED -> PROGRESS -> SUCCESS
-                                      |         |
-                                      |         + terminal
-                                      +-> PAUSED / CANCELLED / FAILED
+SCHEDULED -> QUEUED -> STARTED -> PROGRESS -> SUCCESS
+                               |         |
+                               |         + terminal
+                               +-> PAUSED / CANCELLED / FAILED
 ```
 
-- `QUEUED`: رکورد ساخته شده و در صف داخلی BTDownloader منتظر slot آزاد است.
-- `SCHEDULED`: دانلود به WorkManager تحویل شده و ممکن است منتظر constraints/backoff یا شروع اجرای worker باشد. اگر طولانی در این وضعیت ماند، constraints، وضعیت WorkManager، permission مسیر ذخیره‌سازی و reachable بودن host را بررسی کنید.
+- `SCHEDULED`: فقط برای دانلودهایی که واقعا برای زمان آینده schedule شده‌اند. این وضعیت یعنی هنوز موعد اجرا نرسیده یا trigger زمان‌بندی در حال انتظار است.
+- `QUEUED`: آیتم آماده اجرا است اما فعلا منتظر capacity صف یا constraints/backoff است. دانلودهای فوری مستقیما وارد این وضعیت می‌شوند و آیتم‌های schedule شده بعد از رسیدن موعد از `SCHEDULED` به `QUEUED` می‌آیند.
 - `STARTED`: worker شروع شده و اندازه فایل مشخص شده است.
 - `PROGRESS`: دانلود در جریان است.
-- `PAUSED`: کاربر pause کرده و فایل موقت برای resume باقی می‌ماند.
+- `PAUSED`: کاربر pause کرده و فایل موقت برای resume باقی می‌ماند. `resume(id)` ابتدا وضعیت را در DB به `QUEUED` برمی‌گرداند و سپس dispatch می‌کند؛ بنابراین Flow بلافاصله از PAUSED خارج می‌شود.
 - `CANCELLED`: کاربر cancel کرده و فایل موقت پاک می‌شود.
 - `FAILED`: خطای شبکه، file system یا response رخ داده است.
 - `SUCCESS`: فایل کامل شده و فایل موقت به نام نهایی rename شده است.

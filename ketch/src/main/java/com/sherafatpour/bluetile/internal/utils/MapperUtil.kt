@@ -33,7 +33,8 @@ internal fun DownloadEntity.toDownloadModel() =
         runAttemptCount = runAttemptCount,
         maxRetries = maxRetries,
         errorType = DownloadError.entries.find { it.name == errorType } ?: DownloadError.UNKNOWN,
-        checksum = checksumAlgorithm.toChecksum(checksumValue)
+        checksum = checksumAlgorithm.toChecksum(checksumValue),
+        isScheduledRequest = isScheduledRequest
     )
 
 private fun String.toChecksum(value: String): DownloadChecksum? {

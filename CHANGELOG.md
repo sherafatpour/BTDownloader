@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.7 - 2026-05-19
+
+### Fixed
+
+- `resume(id)` now transitions `PAUSED -> QUEUED` immediately in DB before dispatch, so Flow observers stop showing paused state without optimistic UI workarounds.
+- Resumed downloads continue from existing partial `.bt` bytes by dispatching queued work without resetting progress counters.
+- Active progress persistence now updates on every progress callback (downloaded bytes, speed, status, lastModified), improving Flow emission consistency for `observeDownloads`, `observeDownloadById`, and `observeDownloadByTag`.
+- `startNow(id)` semantics were hardened:
+  - `PAUSED` delegates to resume behavior (no restart from zero).
+  - `QUEUED` / `SCHEDULED` / `DEFAULT` starts immediately.
+  - `STARTED` / `PROGRESS` only raises priority.
+  - `SUCCESS` / `FAILED` / `CANCELLED` is a no-op.
+- Immediate and retrying downloads are no longer represented as `SCHEDULED`; scheduling state is reserved for true future-scheduled items.
+- Added `DownloadModel.isScheduledRequest` and persisted `DownloadEntity.isScheduledRequest` so consumers can distinguish scheduled-origin downloads reliably without inferring from timestamps.
+
+### Tests
+
+- Added `DownloadStatePolicyTest` covering startNow semantics, scheduled/immediate normalization, and queue-capacity gating policy.
+
 ## 1.1.6 - 2026-05-19
 
 ### Fixed
