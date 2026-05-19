@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.8 - 2026-05-19
+
+### Fixed
+
+- Fixed worker interruption handling when network is lost mid-download:
+  - `CancellationException` is no longer treated as user cancel unless `userAction == CANCEL`.
+  - `CancellationException` without `PAUSE/CANCEL` now maps to `DownloadError.NETWORK`.
+- User actions are now strictly separated inside `DownloadWorker` catch handling:
+  - `PAUSE` keeps `.bt` temp file and sets `PAUSED`.
+  - `CANCEL` sets `CANCELLED` and removes `.bt` temp file.
+- Added retryable error policy in worker:
+  - retries only for `NETWORK`, `SERVER`, and `UNKNOWN` while attempts remain.
+  - no automatic retry for `CHECKSUM`.
+- During retry-eligible network interruption:
+  - status is persisted as `QUEUED`,
+  - `errorType` is persisted as `NETWORK`,
+  - speed is reset to `0`,
+  - partial bytes are preserved for resume/range continuation.
+- Expanded network error mapping to include `SocketException`, `SocketTimeoutException`, `UnknownHostException`, `ConnectException`, `InterruptedIOException`, and `SSLException` as `DownloadError.NETWORK`.
+- Kept storage/file path/rename I/O failures mapped to `DownloadError.STORAGE`.
+- Kept HTTP failures mapped to `DownloadError.SERVER`.
+
 ## 1.1.7 - 2026-05-19
 
 ### Fixed

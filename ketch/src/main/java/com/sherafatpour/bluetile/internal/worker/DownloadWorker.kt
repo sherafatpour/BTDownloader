@@ -29,6 +29,9 @@ import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.File
 import java.io.IOException
+import java.io.InterruptedIOException
+import java.net.SocketException
+import javax.net.ssl.SSLException
 
 internal class DownloadWorker(
     private val context: Context,
@@ -213,60 +216,73 @@ internal class DownloadWorker(
 
             Result.success()
         } catch (e: Exception) {
-            val shouldRetry = e !is CancellationException && runAttemptCount < downloadRequest.retryPolicy.maxRetries
+            var shouldRetry = false
             withContext(NonCancellable) {
-                if (e is CancellationException) {
-                    if (downloadDao.find(id)?.userAction == UserAction.PAUSE.toString()) {
+                val current = downloadDao.find(id) ?: return@withContext
+                val isUserPause = current.userAction == UserAction.PAUSE.toString()
+                val isUserCancel = current.userAction == UserAction.CANCEL.toString()
 
-                        downloadDao.find(id)?.copy(
-                            status = Status.PAUSED.toString(),
-                            uuid = "",
-                            lastModified = System.currentTimeMillis()
-                        )?.let { downloadDao.update(it) }
-                        val downloadEntity = downloadDao.find(id)
-                        if (downloadEntity != null) {
-                            val currentProgress = if (downloadEntity.totalBytes != 0L) {
-                                ((downloadEntity.downloadedBytes * MAX_PERCENT) / downloadEntity.totalBytes).toInt()
-                            } else {
-                                0
-                            }
-                            downloadNotificationManager?.sendDownloadPausedNotification(
-                                currentProgress = currentProgress
-                            )
-                        }
+                val resolvedError = when {
+                    e is CancellationException && !isUserPause && !isUserCancel -> DownloadError.NETWORK
+                    else -> e.toDownloadError()
+                }
+                val resolvedReason = when {
+                    e is CancellationException && !isUserPause && !isUserCancel ->
+                        "Network interruption while downloading"
+                    else -> (e.message ?: e::class.java.simpleName)
+                }
+                shouldRetry = !isUserPause &&
+                    !isUserCancel &&
+                    resolvedError.isRetryable() &&
+                    runAttemptCount < downloadRequest.retryPolicy.maxRetries
 
-                    } else {
-
-                        downloadDao.find(id)?.copy(
-                            status = Status.CANCELLED.toString(),
-                            uuid = "",
-                            lastModified = System.currentTimeMillis()
-                        )?.let { downloadDao.update(it) }
-                        FileUtil.deleteFileIfExists(dirPath, tempFileName)
-                        downloadNotificationManager?.sendDownloadCancelledNotification()
-
-                    }
-                } else {
-
-                    val failedEntity = downloadDao.find(id)
-                    failedEntity?.copy(
-                            status = if (shouldRetry) Status.QUEUED.toString() else Status.FAILED.toString(),
-                            uuid = if (shouldRetry) failedEntity.uuid else "",
-                            failureReason = e.message ?: e::class.java.simpleName,
-                            errorType = e.toDownloadError().toString(),
-                            runAttemptCount = runAttemptCount + 1,
-                            lastModified = System.currentTimeMillis()
-                    )?.let { downloadDao.update(it) }
-                    val downloadEntity = downloadDao.find(id)
-                    if (downloadEntity != null && !shouldRetry) {
-                        val currentProgress = if (downloadEntity.totalBytes != 0L) {
-                            ((downloadEntity.downloadedBytes * MAX_PERCENT) / downloadEntity.totalBytes).toInt()
+                if (isUserPause) {
+                    current.copy(
+                        status = Status.PAUSED.toString(),
+                        uuid = "",
+                        speedInBytePerMs = 0f,
+                        lastModified = System.currentTimeMillis()
+                    ).let { downloadDao.update(it) }
+                    val pausedEntity = downloadDao.find(id)
+                    if (pausedEntity != null) {
+                        val currentProgress = if (pausedEntity.totalBytes != 0L) {
+                            ((pausedEntity.downloadedBytes * MAX_PERCENT) / pausedEntity.totalBytes).toInt()
                         } else {
                             0
                         }
-                        downloadNotificationManager?.sendDownloadFailedNotification(
-                            currentProgress = currentProgress
-                        )
+                        downloadNotificationManager?.sendDownloadPausedNotification(currentProgress = currentProgress)
+                    }
+                } else if (isUserCancel) {
+                    current.copy(
+                        status = Status.CANCELLED.toString(),
+                        uuid = "",
+                        speedInBytePerMs = 0f,
+                        lastModified = System.currentTimeMillis()
+                    ).let { downloadDao.update(it) }
+                    FileUtil.deleteFileIfExists(dirPath, tempFileName)
+                    downloadNotificationManager?.sendDownloadCancelledNotification()
+                } else {
+                    current.copy(
+                        status = if (shouldRetry) Status.QUEUED.toString() else Status.FAILED.toString(),
+                        uuid = if (shouldRetry) current.uuid else "",
+                        failureReason = resolvedReason,
+                        errorType = resolvedError.toString(),
+                        speedInBytePerMs = 0f,
+                        runAttemptCount = runAttemptCount + 1,
+                        lastModified = System.currentTimeMillis()
+                    ).let { downloadDao.update(it) }
+                    if (!shouldRetry) {
+                        val failedEntity = downloadDao.find(id)
+                        if (failedEntity != null) {
+                            val currentProgress = if (failedEntity.totalBytes != 0L) {
+                                ((failedEntity.downloadedBytes * MAX_PERCENT) / failedEntity.totalBytes).toInt()
+                            } else {
+                                0
+                            }
+                            downloadNotificationManager?.sendDownloadFailedNotification(
+                                currentProgress = currentProgress
+                            )
+                        }
                     }
                 }
 
@@ -334,12 +350,21 @@ internal class DownloadWorker(
             is ChecksumMismatchException -> DownloadError.CHECKSUM
             is java.net.SocketTimeoutException,
             is java.net.UnknownHostException,
-            is java.net.ConnectException -> DownloadError.NETWORK
+            is java.net.ConnectException,
+            is SocketException,
+            is InterruptedIOException,
+            is SSLException -> DownloadError.NETWORK
             is HttpException -> DownloadError.SERVER
             is IOException -> DownloadError.STORAGE
             is CancellationException -> DownloadError.CANCELLED
             else -> DownloadError.UNKNOWN
         }
+    }
+
+    private fun DownloadError.isRetryable(): Boolean {
+        return this == DownloadError.NETWORK ||
+            this == DownloadError.SERVER ||
+            this == DownloadError.UNKNOWN
     }
 
     private class ChecksumMismatchException(message: String) : IOException(message)

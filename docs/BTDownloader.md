@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.7'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.8'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.7")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.8")
 }
 ```
 
-این مختصات برای release tag `1.1.7` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.8` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.1.7
+1.1.8
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.1.7
+git tag 1.1.8
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.7
+git push origin 1.1.8
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.7
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.8
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
