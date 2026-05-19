@@ -361,10 +361,23 @@ internal class DownloadNotificationManager(
         val channel = NotificationChannel(
             NotificationConst.NOTIFICATION_CHANNEL_ID,
             notificationConfig.channelName,
-            notificationConfig.importance
+            sanitizeImportance(notificationConfig.importance)
         )
         channel.description = notificationConfig.channelDescription
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun sanitizeImportance(importance: Int): Int {
+        return when (importance) {
+            NotificationManager.IMPORTANCE_UNSPECIFIED,
+            NotificationManager.IMPORTANCE_NONE,
+            NotificationManager.IMPORTANCE_MIN,
+            NotificationManager.IMPORTANCE_LOW,
+            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_HIGH -> importance
+            else -> NotificationManager.IMPORTANCE_LOW
+        }
     }
 
     private fun canPostNotifications(): Boolean {

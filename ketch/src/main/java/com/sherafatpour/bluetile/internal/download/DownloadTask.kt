@@ -59,11 +59,17 @@ internal class DownloadTask(
 
         val responseBody = response.body()
 
-        if (response.code() !in VALUE_200..VALUE_299 ||
-            responseBody == null
-        ) {
-            throw IOException(
-                "Something went wrong, response code: ${response.code()}, responseBody null: ${responseBody == null}"
+        if (response.code() !in VALUE_200..VALUE_299) {
+            throw DownloadHttpException(
+                response.code(),
+                "HTTP ${response.code()} while downloading $fileName"
+            )
+        }
+
+        if (responseBody == null) {
+            throw DownloadHttpException(
+                response.code(),
+                "Empty response body while downloading $fileName"
             )
         }
 
@@ -129,12 +135,15 @@ internal class DownloadTask(
     }
 
     private fun addDefaultHeaders(headers: MutableMap<String, String>) {
-        headers.putIfAbsent(DownloadConst.ACCEPT_HEADER, "*/*")
-        headers.putIfAbsent(DownloadConst.ACCEPT_ENCODING_HEADER, "identity")
-        headers.putIfAbsent(
-            DownloadConst.USER_AGENT_HEADER,
-            "Mozilla/5.0 (Linux; Android) BTDownloader/1.0"
-        )
+        putHeaderIfAbsent(headers, DownloadConst.ACCEPT_HEADER, "*/*")
+        putHeaderIfAbsent(headers, DownloadConst.ACCEPT_ENCODING_HEADER, "identity")
+        putHeaderIfAbsent(headers, DownloadConst.USER_AGENT_HEADER, "Mozilla/5.0 (Linux; Android) BTDownloader/1.0")
+    }
+
+    private fun putHeaderIfAbsent(headers: MutableMap<String, String>, key: String, value: String) {
+        if (!headers.containsKey(key)) {
+            headers[key] = value
+        }
     }
 
     private fun shouldRestartDownload(responseCode: Int, rangeStart: Long): Boolean {
@@ -156,3 +165,8 @@ internal class DownloadTask(
         }
     }
 }
+
+internal class DownloadHttpException(
+    val code: Int,
+    message: String
+) : IOException(message)

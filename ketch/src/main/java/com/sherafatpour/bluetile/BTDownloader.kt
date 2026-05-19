@@ -1,5 +1,6 @@
 package com.sherafatpour.bluetile
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.work.WorkManager
 import com.sherafatpour.bluetile.internal.database.DatabaseInstance
@@ -86,6 +87,7 @@ class BTDownloader private constructor(
 
     companion object {
 
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var btDownloadInstance: BTDownloader? = null
 

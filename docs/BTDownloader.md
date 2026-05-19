@@ -46,7 +46,7 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.8'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.9'
 }
 ```
 
@@ -54,11 +54,11 @@ dependencies {
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.8")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.9")
 }
 ```
 
-این مختصات برای release tag `1.1.8` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
+این مختصات برای release tag `1.1.9` در repository فعلی است. اگر کتابخانه را از fork یا repository دیگری منتشر می‌کنید، الگو این است:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -77,7 +77,7 @@ dependencies {
 نسخه ریلیز فعلی:
 
 ```text
-1.1.8
+1.1.9
 ```
 
 ماژول `:ketch` با `maven-publish` پیکربندی شده و `jitpack.yml` در ریشه پروژه این فرمان را برای JitPack اجرا می‌کند:
@@ -96,15 +96,15 @@ dependencies {
 سپس tag و push:
 
 ```bash
-git tag 1.1.8
+git tag 1.1.9
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.8
+git push origin 1.1.9
 ```
 
 لینک build در JitPack:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.8
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.9
 ```
 
 خروجی publication شامل `AAR`، `POM` و `sources.jar` است.
@@ -175,6 +175,7 @@ BTDownloader این permissionهای اصلی را در manifest خود کتاب
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -188,7 +189,7 @@ BTDownloader این permissionهای اصلی را در manifest خود کتاب
 - اگر برنامه به Storage Access Framework نیاز دارد، انتخاب document/tree، گرفتن permission، persist کردن URI permission و تبدیل آن به مقصد قابل نوشتن باید در خود اپلیکیشن مصرف‌کننده انجام شود. BTDownloader عمدا UI یا permission flow مربوط به SAF را مدیریت نمی‌کند تا در پروژه‌های مختلف قابل استفاده بماند.
 - اگر برنامه روی نسخه‌های قدیمی Android از shared external storage legacy استفاده می‌کند، permissionهای storage مربوط به همان اپ باید در لایه اپ مدیریت شوند. خود BTDownloader برای مسیرهای app-specific به storage permission نیاز ندارد.
 
-WorkManager ممکن است permissionها و receiverهای داخلی مثل `ACCESS_NETWORK_STATE`, `WAKE_LOCK` و `RECEIVE_BOOT_COMPLETED` را از manifestهای transitive merge کند. معمولا لازم نیست این موارد را دستی اضافه کنید.
+WorkManager ممکن است permissionها و receiverهای داخلی مثل `WAKE_LOCK` و `RECEIVE_BOOT_COMPLETED` را از manifestهای transitive merge کند. معمولا لازم نیست این موارد را دستی اضافه کنید.
 
 نمونه runtime request برای notification:
 

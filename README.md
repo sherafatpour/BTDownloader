@@ -46,7 +46,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-1.1.8
+1.1.9
 ```
 
 Add JitPack:
@@ -66,7 +66,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.8'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.9'
 }
 ```
 
@@ -74,11 +74,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.8")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.9")
 }
 ```
 
-JitPack builds this repository from the release tag `1.1.8`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.1.9`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -101,7 +101,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour:BTDownloader:1.1.8
+com.github.sherafatpour:BTDownloader:1.1.9
 ```
 
 Release checklist:
@@ -109,15 +109,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 1.1.8
+git tag 1.1.9
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.8
+git push origin 1.1.9
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.8
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.9
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -128,9 +128,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `BTDownloader-1.1.8.aar`
-- `BTDownloader-1.1.8.pom`
-- `BTDownloader-1.1.8-sources.jar`
+- `BTDownloader-1.1.9.aar`
+- `BTDownloader-1.1.9.pom`
+- `BTDownloader-1.1.9-sources.jar`
 
 ## Quick Start
 
@@ -383,6 +383,7 @@ BTDownloader declares the core download permissions in the library manifest, so 
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -396,7 +397,7 @@ What the app still needs to handle:
 - Use SAF or MediaStore in the app layer when the user chooses shared storage or public media locations.
 - Add legacy storage permissions only if your own app targets old shared external storage behavior on older Android versions. BTDownloader itself does not require them.
 
-WorkManager may also merge its own internal permissions/receivers such as `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, and `RECEIVE_BOOT_COMPLETED` through transitive manifests. You usually do not need to add those manually.
+WorkManager may also merge its own internal permissions/receivers such as `WAKE_LOCK` and `RECEIVE_BOOT_COMPLETED` through transitive manifests. You usually do not need to add those manually.
 
 ## Notifications
 

@@ -14,6 +14,7 @@ import com.sherafatpour.bluetile.Status
 import com.sherafatpour.bluetile.internal.database.DatabaseInstance
 import com.sherafatpour.bluetile.internal.download.DownloadTask
 import com.sherafatpour.bluetile.internal.download.ApiResponseHeaderChecker
+import com.sherafatpour.bluetile.internal.download.DownloadHttpException
 import com.sherafatpour.bluetile.internal.download.DownloadWorkCoordinator
 import com.sherafatpour.bluetile.internal.network.RetrofitInstance
 import com.sherafatpour.bluetile.internal.notification.DownloadNotificationManager
@@ -120,6 +121,7 @@ internal class DownloadWorker(
                 speedLimitBytesPerSecond = downloadConfig.speedLimitBytesPerSecond,
                 onStart = { length ->
                     if (!FileUtil.hasEnoughFreeSpace(
+                            context = context,
                             path = dirPath,
                             expectedBytes = length,
                             bufferBytes = downloadConfig.freeSpaceBufferBytes
@@ -354,6 +356,7 @@ internal class DownloadWorker(
             is SocketException,
             is InterruptedIOException,
             is SSLException -> DownloadError.NETWORK
+            is DownloadHttpException -> DownloadError.SERVER
             is HttpException -> DownloadError.SERVER
             is IOException -> DownloadError.STORAGE
             is CancellationException -> DownloadError.CANCELLED

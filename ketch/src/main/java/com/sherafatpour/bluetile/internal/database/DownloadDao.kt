@@ -34,7 +34,7 @@ internal interface DownloadDao {
     fun getAllEntityByTagFlow(tag: String): Flow<List<DownloadEntity>>
 
     @Query("SELECT * FROM downloads WHERE id = :id ORDER BY timeQueued ASC")
-    fun getEntityByIdFlow(id: Int): Flow<DownloadEntity>
+    fun getEntityByIdFlow(id: Int): Flow<DownloadEntity?>
 
     @Query("SELECT * FROM downloads ORDER BY timeQueued ASC")
     suspend fun getAllEntity(): List<DownloadEntity>

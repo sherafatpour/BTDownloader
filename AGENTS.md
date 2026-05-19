@@ -27,7 +27,7 @@ This repository contains an Android download manager library (`:ketch`) and a sa
 - Stream writer: `ketch/src/main/java/com/sherafatpour/bluetile/internal/download/DownloadTask.kt`
 - Database: `ketch/src/main/java/com/sherafatpour/bluetile/internal/database/*`
 - File behavior: `ketch/src/main/java/com/sherafatpour/bluetile/internal/utils/FileUtil.kt`
-- Full docs: `docs/KETCH_LIBRARY_DOCUMENTATION.md`
+- Full docs: `docs/BTDownloader.md`
 
 ## Verification
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.9 - 2026-05-19
+
+### Fixed
+
+- Added `ACCESS_NETWORK_STATE` to library and sample manifests for explicit network callback support.
+- Fixed failed HTTP responses and empty response bodies to map to `DownloadError.SERVER` instead of storage errors.
+- Replaced Java 8 `Map.putIfAbsent` calls in download headers with minSdk 23-safe logic.
+- Hardened notification posting and notification channel importance validation so Android lint can verify permission and constant safety.
+- Improved free-space checks by using `StorageManager.getAllocatableBytes(...)` on Android O+ when a context is available, with a safe fallback for older devices.
+
+### Changed
+
+- Updated `androidx.core:core-ktx` to `1.18.0` in the library and sample app.
+
 ## 1.1.8 - 2026-05-19
 
 ### Fixed

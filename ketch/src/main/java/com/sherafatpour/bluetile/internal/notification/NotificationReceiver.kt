@@ -1,5 +1,7 @@
 package com.sherafatpour.bluetile.internal.notification
 
+import android.annotation.SuppressLint
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -234,12 +236,7 @@ internal class NotificationReceiver : BroadcastReceiver() {
             val notification = notificationBuilder
                 .build()
 
-            if (NotificationPermissionUtil.canPostNotifications(context)) {
-                NotificationManagerCompat.from(context).notify(
-                    notificationId,
-                    notification
-                )
-            }
+            notifyIfAllowed(context, notificationId, notification)
         }
     }
 
@@ -257,10 +254,31 @@ internal class NotificationReceiver : BroadcastReceiver() {
         val channel = NotificationChannel(
             NotificationConst.NOTIFICATION_CHANNEL_ID,
             notificationChannelName,
-            notificationImportance
+            sanitizeImportance(notificationImportance)
         )
         channel.description = notificationChannelDescription
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun sanitizeImportance(importance: Int): Int {
+        return when (importance) {
+            NotificationManager.IMPORTANCE_UNSPECIFIED,
+            NotificationManager.IMPORTANCE_NONE,
+            NotificationManager.IMPORTANCE_MIN,
+            NotificationManager.IMPORTANCE_LOW,
+            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_HIGH -> importance
+            else -> NotificationManager.IMPORTANCE_LOW
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun notifyIfAllowed(context: Context, notificationId: Int, notification: Notification) {
+        if (!NotificationPermissionUtil.canPostNotifications(context)) return
+        runCatching {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        }
     }
 
     private fun runDownloadActionAsync(

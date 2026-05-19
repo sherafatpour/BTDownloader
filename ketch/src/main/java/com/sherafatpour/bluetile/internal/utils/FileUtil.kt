@@ -1,6 +1,9 @@
 package com.sherafatpour.bluetile.internal.utils
 
+import android.content.Context
 import android.os.Environment
+import android.os.Build
+import android.os.storage.StorageManager
 import android.webkit.URLUtil
 import java.io.File
 import java.math.BigInteger
@@ -76,10 +79,27 @@ internal object FileUtil {
         }
     }
 
-    fun hasEnoughFreeSpace(path: String, expectedBytes: Long, bufferBytes: Long): Boolean {
+    fun hasEnoughFreeSpace(
+        path: String,
+        expectedBytes: Long,
+        bufferBytes: Long,
+        context: Context? = null
+    ): Boolean {
         if (expectedBytes <= 0L) return true
         val directory = File(path)
-        return directory.usableSpace >= expectedBytes + bufferBytes
+        val requiredBytes = if (Long.MAX_VALUE - expectedBytes < bufferBytes) {
+            Long.MAX_VALUE
+        } else {
+            expectedBytes + bufferBytes
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && context != null) {
+            runCatching {
+                val storageManager = context.getSystemService(StorageManager::class.java)
+                val storageUuid = storageManager.getUuidForPath(directory)
+                return storageManager.getAllocatableBytes(storageUuid) >= requiredBytes
+            }
+        }
+        return directory.usableSpace >= requiredBytes
     }
 
     fun checksum(path: String, fileName: String, algorithm: String): String {
