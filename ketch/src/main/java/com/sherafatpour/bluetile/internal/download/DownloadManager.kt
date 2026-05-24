@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.net.URI
 import java.util.UUID
 
 internal class DownloadManager(
@@ -224,6 +225,10 @@ internal class DownloadManager(
         } else {
             downloadRequest
         }
+        val effectiveConstraints = normalizeConstraintsForUrl(
+            url = effectiveRequest.url,
+            constraints = effectiveRequest.constraints
+        )
         val isFutureScheduled = DownloadStatePolicy.isFutureScheduled(effectiveRequest.scheduledAtEpochMs)
         val scheduledAtEpochMs = DownloadStatePolicy.normalizedScheduledAt(
             scheduledAtEpochMs = effectiveRequest.scheduledAtEpochMs,
@@ -263,10 +268,10 @@ internal class DownloadManager(
                     failureReason = if (shouldQueueAgain) "" else existingEntity.failureReason,
                     runAttemptCount = if (shouldQueueAgain) 0 else existingEntity.runAttemptCount,
                     priority = effectiveRequest.priority.value,
-                    networkType = effectiveRequest.constraints.networkType.toString(),
-                    requiresCharging = effectiveRequest.constraints.requiresCharging,
-                    requiresBatteryNotLow = effectiveRequest.constraints.requiresBatteryNotLow,
-                    requiresStorageNotLow = effectiveRequest.constraints.requiresStorageNotLow,
+                    networkType = effectiveConstraints.networkType.toString(),
+                    requiresCharging = effectiveConstraints.requiresCharging,
+                    requiresBatteryNotLow = effectiveConstraints.requiresBatteryNotLow,
+                    requiresStorageNotLow = effectiveConstraints.requiresStorageNotLow,
                     maxRetries = effectiveRequest.retryPolicy.maxRetries,
                     backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
                     backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
@@ -297,10 +302,10 @@ internal class DownloadManager(
                     userAction = UserAction.START.toString(),
                     metaData = effectiveRequest.metaData,
                     priority = effectiveRequest.priority.value,
-                    networkType = effectiveRequest.constraints.networkType.toString(),
-                    requiresCharging = effectiveRequest.constraints.requiresCharging,
-                    requiresBatteryNotLow = effectiveRequest.constraints.requiresBatteryNotLow,
-                    requiresStorageNotLow = effectiveRequest.constraints.requiresStorageNotLow,
+                    networkType = effectiveConstraints.networkType.toString(),
+                    requiresCharging = effectiveConstraints.requiresCharging,
+                    requiresBatteryNotLow = effectiveConstraints.requiresBatteryNotLow,
+                    requiresStorageNotLow = effectiveConstraints.requiresStorageNotLow,
                     maxRetries = effectiveRequest.retryPolicy.maxRetries,
                     backoffDelayInMs = effectiveRequest.retryPolicy.backoffDelayInMs,
                     backoffPolicy = effectiveRequest.retryPolicy.backoffPolicy.toString(),
@@ -337,6 +342,39 @@ internal class DownloadManager(
             this == Status.SCHEDULED.toString() ||
             this == Status.STARTED.toString() ||
             this == Status.PROGRESS.toString()
+    }
+
+    private fun normalizeConstraintsForUrl(
+        url: String,
+        constraints: DownloadConstraints
+    ): DownloadConstraints {
+        if (constraints.networkType != BTDownloaderNetworkType.CONNECTED) return constraints
+        return if (isLikelyLocalEndpoint(url)) {
+            constraints.copy(networkType = BTDownloaderNetworkType.ANY)
+        } else {
+            constraints
+        }
+    }
+
+    private fun isLikelyLocalEndpoint(url: String): Boolean {
+        val host = runCatching { URI(url).host.orEmpty().lowercase() }.getOrDefault("")
+        if (host.isBlank()) return false
+        if (host == "localhost" || host.endsWith(".local") || host == "0.0.0.0") return true
+        if (host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80:")) return true
+        if (!host.contains(".") && host.none { it == ':' }) return true
+        if (!host.all { it.isDigit() || it == '.' }) return false
+
+        val parts = host.split(".")
+        if (parts.size != 4) return false
+        val octets = parts.map { it.toIntOrNull() ?: return false }
+        val first = octets[0]
+        val second = octets[1]
+
+        return first == 10 ||
+            first == 127 ||
+            (first == 169 && second == 254) ||
+            (first == 172 && second in 16..31) ||
+            (first == 192 && second == 168)
     }
 
     private suspend fun scheduleQueuedDownloads() {

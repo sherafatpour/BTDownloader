@@ -1,11 +1,24 @@
 # Changelog
 
+## 1.1.11 - 2026-05-24
+
+### Fixed
+
+- Improved local-network behavior for downloads:
+  - queued dispatch is no longer gated on public-internet capability only,
+  - when `networkType = CONNECTED` and target URL is internal/local, BTDownloader normalizes constraints to `ANY` so internal endpoints are not blocked with false internet errors.
+
+### Documentation
+
+- Updated README and full docs with the internal/local network behavior and new release coordinates.
+
 ## 1.1.10 - 2026-05-24
 
 ### Fixed
 
 - Relaxed network-capability gating in `DownloadManager` network callback so queue dispatch is not blocked when the device is on internal/local networks without public internet capability.
 - This prevents false "internet error" behavior for valid intranet download endpoints.
+- Added automatic local-endpoint constraint normalization: when `networkType = CONNECTED` and target URL is internal/local, BTDownloader dispatches with `ANY` network constraint to avoid false internet-blocked behavior.
 
 ## 1.1.9 - 2026-05-19
 
