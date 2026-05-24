@@ -46,7 +46,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-1.1.9
+1.1.10
 ```
 
 Add JitPack:
@@ -66,7 +66,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.9'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.10'
 }
 ```
 
@@ -74,11 +74,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.9")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.10")
 }
 ```
 
-JitPack builds this repository from the release tag `1.1.9`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.1.10`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -101,7 +101,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour:BTDownloader:1.1.9
+com.github.sherafatpour:BTDownloader:1.1.10
 ```
 
 Release checklist:
@@ -109,15 +109,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 1.1.9
+git tag 1.1.10
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.9
+git push origin 1.1.10
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.9
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.10
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -128,9 +128,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `BTDownloader-1.1.9.aar`
-- `BTDownloader-1.1.9.pom`
-- `BTDownloader-1.1.9-sources.jar`
+- `BTDownloader-1.1.10.aar`
+- `BTDownloader-1.1.10.pom`
+- `BTDownloader-1.1.10-sources.jar`
 
 ## Quick Start
 

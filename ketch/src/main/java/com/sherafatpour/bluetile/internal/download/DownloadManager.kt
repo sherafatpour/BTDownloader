@@ -69,9 +69,9 @@ internal class DownloadManager(
         }
 
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-            if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                scope.launch { scheduleQueuedDownloads() }
-            }
+            // Do not gate on NET_CAPABILITY_INTERNET here: local/internal networks can be
+            // valid download paths for intranet endpoints even without public internet.
+            scope.launch { scheduleQueuedDownloads() }
         }
     }
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.10 - 2026-05-24
+
+### Fixed
+
+- Relaxed network-capability gating in `DownloadManager` network callback so queue dispatch is not blocked when the device is on internal/local networks without public internet capability.
+- This prevents false "internet error" behavior for valid intranet download endpoints.
+
 ## 1.1.9 - 2026-05-19
 
 ### Fixed
