@@ -18,6 +18,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 - Scheduled downloads at a specific epoch time with WorkManager-backed persistence
 - Automatic retry with linear or exponential backoff
 - Optional speed throttling and free-space preflight
+- Buffered write path and size-aware progress cadence, tuned for multi-GB downloads
 - Optional checksum verification with `MD5` or `SHA256`
 - Optional auto rename when the requested file name already exists
 - HTTP resume support using `Range`
@@ -46,7 +47,7 @@ BTDownloader is a Kotlin Android download manager library built on WorkManager, 
 Current release version:
 
 ```text
-1.1.11
+1.1.12
 ```
 
 Add JitPack:
@@ -66,7 +67,7 @@ Add BTDownloader:
 
 ```groovy
 dependencies {
-    implementation 'com.github.sherafatpour:BTDownloader:1.1.11'
+    implementation 'com.github.sherafatpour:BTDownloader:1.1.12'
 }
 ```
 
@@ -74,11 +75,11 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.sherafatpour:BTDownloader:1.1.11")
+    implementation("com.github.sherafatpour:BTDownloader:1.1.12")
 }
 ```
 
-JitPack builds this repository from the release tag `1.1.11`. If you publish from a fork or a renamed repository, replace the coordinates with:
+JitPack builds this repository from the release tag `1.1.12`. If you publish from a fork or a renamed repository, replace the coordinates with:
 
 ```text
 com.github.<GitHubUserOrOrg>:<RepositoryName>:<Tag>
@@ -101,7 +102,7 @@ This repository is configured for JitPack through `jitpack.yml` and the `:ketch`
 Release coordinates:
 
 ```text
-com.github.sherafatpour:BTDownloader:1.1.11
+com.github.sherafatpour:BTDownloader:1.1.12
 ```
 
 Release checklist:
@@ -109,15 +110,15 @@ Release checklist:
 ```bash
 ./gradlew :ketch:assembleRelease :ketch:publishReleasePublicationToMavenLocal
 ./gradlew :ketch:compileDebugKotlin :app:assembleDebug
-git tag 1.1.11
+git tag 1.1.12
 git push origin codex/ketch-jitpack-release
-git push origin 1.1.11
+git push origin 1.1.12
 ```
 
 Then open:
 
 ```text
-https://jitpack.io/#sherafatpour/BTDownloader/1.1.11
+https://jitpack.io/#sherafatpour/BTDownloader/1.1.12
 ```
 
 Wait for JitPack to finish building the tag. The build command used by JitPack is:
@@ -128,9 +129,9 @@ Wait for JitPack to finish building the tag. The build command used by JitPack i
 
 The release publication produces:
 
-- `BTDownloader-1.1.11.aar`
-- `BTDownloader-1.1.11.pom`
-- `BTDownloader-1.1.11-sources.jar`
+- `BTDownloader-1.1.12.aar`
+- `BTDownloader-1.1.12.pom`
+- `BTDownloader-1.1.12-sources.jar`
 
 ## Quick Start
 
@@ -149,7 +150,12 @@ class MainApplication : Application() {
                     readTimeOutInMs = 20_000L,
                     maxConcurrentDownloads = 3,
                     speedLimitBytesPerSecond = 0L,
-                    freeSpaceBufferBytes = 10L * 1024L * 1024L
+                    freeSpaceBufferBytes = 10L * 1024L * 1024L,
+                    // Optional: how often progress is persisted and published. These are
+                    // size-aware because one cadence cannot suit both a 20 MB and a 4 GB file.
+                    progressIntervalLargeMs = 3_000L,
+                    minProgressBytesLarge = 5L * 1024 * 1024,
+                    thresholdLargeBytes = 2L * 1024 * 1024 * 1024
                 )
             )
             .enableLogs(BuildConfig.DEBUG)

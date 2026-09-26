@@ -12,6 +12,7 @@ import java.util.UUID
 
 internal object FileUtil {
     private const val TEMP_EXTENSION = ".bt"
+    private const val CHECKSUM_BUFFER_SIZE = 1024 * 1024
 
     fun getFileNameFromUrl(url: String): String {
         val guessFileName = URLUtil.guessFileName(url, null, null)
@@ -105,7 +106,7 @@ internal object FileUtil {
     fun checksum(path: String, fileName: String, algorithm: String): String {
         val digest = MessageDigest.getInstance(algorithm)
         File(path, fileName).inputStream().use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            val buffer = ByteArray(CHECKSUM_BUFFER_SIZE)
             var read = input.read(buffer)
             while (read >= 0) {
                 digest.update(buffer, 0, read)

@@ -16,6 +16,7 @@ import com.sherafatpour.bluetile.internal.download.DownloadTask
 import com.sherafatpour.bluetile.internal.download.ApiResponseHeaderChecker
 import com.sherafatpour.bluetile.internal.download.DownloadHttpException
 import com.sherafatpour.bluetile.internal.download.DownloadWorkCoordinator
+import com.sherafatpour.bluetile.internal.download.ProgressReportPolicy
 import com.sherafatpour.bluetile.internal.network.RetrofitInstance
 import com.sherafatpour.bluetile.internal.notification.DownloadNotificationManager
 import com.sherafatpour.bluetile.internal.utils.NotificationConst
@@ -111,6 +112,11 @@ internal class DownloadWorker(
                 )?.let { downloadDao.update(it) }
             }
 
+            var progressPercentage = 0
+            var lastReportedBytes = 0L
+            var hasReportedProgress = false
+            var minProgressBytesDelta = downloadConfig.minProgressBytesMedium
+
             val totalLength = DownloadTask(
                 url = url,
                 path = dirPath,
@@ -119,6 +125,9 @@ internal class DownloadWorker(
             ).download(
                 headers = headers,
                 speedLimitBytesPerSecond = downloadConfig.speedLimitBytesPerSecond,
+                progressIntervalMsProvider = { totalBytes ->
+                    ProgressReportPolicy.tuningFor(downloadConfig, totalBytes).intervalMs
+                },
                 onStart = { length ->
                     if (!FileUtil.hasEnoughFreeSpace(
                             context = context,
@@ -129,6 +138,9 @@ internal class DownloadWorker(
                     ) {
                         throw IOException("Not enough free space for $finalFileName")
                     }
+
+                    minProgressBytesDelta =
+                        ProgressReportPolicy.tuningFor(downloadConfig, length).minBytesDelta
 
                     downloadDao.find(id)?.copy(
                         totalBytes = length,
@@ -147,34 +159,46 @@ internal class DownloadWorker(
                 },
                 onProgress = { downloadedBytes, length, speed ->
 
-                    val progress = if (length != 0L) {
-                        ((downloadedBytes * 100) / length).toInt()
-                    } else {
-                        0
-                    }
+                    val progress = ProgressReportPolicy.percentOf(downloadedBytes, length)
 
-                    downloadDao.find(id)?.copy(
+                    val shouldReport = ProgressReportPolicy.shouldReport(
+                        hasReported = hasReportedProgress,
+                        percent = progress,
+                        lastReportedPercent = progressPercentage,
                         downloadedBytes = downloadedBytes,
-                        speedInBytePerMs = speed,
-                        status = Status.PROGRESS.toString(),
-                        failureReason = "",
-                        errorType = DownloadError.NONE.toString(),
-                        runAttemptCount = runAttemptCount + 1,
-                        lastModified = System.currentTimeMillis()
-                    )?.let { downloadDao.update(it) }
-
-                    setProgress(
-                        workDataOf(
-                            DownloadConst.KEY_STATE to DownloadConst.PROGRESS,
-                            DownloadConst.KEY_PROGRESS to progress
-                        )
+                        lastReportedBytes = lastReportedBytes,
+                        totalBytes = length,
+                        minBytesDelta = minProgressBytesDelta
                     )
-                    downloadNotificationManager?.sendUpdateNotification(
-                        progress = progress,
-                        speedInBPerMs = speed,
-                        length = length,
-                        update = true
-                    )?.let { setForegroundSafely(it) }
+
+                    if (shouldReport) {
+                        hasReportedProgress = true
+                        progressPercentage = progress
+                        lastReportedBytes = downloadedBytes
+
+                        downloadDao.find(id)?.copy(
+                            downloadedBytes = downloadedBytes,
+                            speedInBytePerMs = speed,
+                            status = Status.PROGRESS.toString(),
+                            failureReason = "",
+                            errorType = DownloadError.NONE.toString(),
+                            runAttemptCount = runAttemptCount + 1,
+                            lastModified = System.currentTimeMillis()
+                        )?.let { downloadDao.update(it) }
+
+                        setProgress(
+                            workDataOf(
+                                DownloadConst.KEY_STATE to DownloadConst.PROGRESS,
+                                DownloadConst.KEY_PROGRESS to progress
+                            )
+                        )
+                        downloadNotificationManager?.sendUpdateNotification(
+                            progress = progress,
+                            speedInBPerMs = speed,
+                            length = length,
+                            update = true
+                        )?.let { setForegroundSafely(it) }
+                    }
                 }
             )
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.12 - 2026-09-26
+
+### Performance
+
+- Buffered the download write path. Writes previously went straight to `FileOutputStream` in 8 KB
+  chunks; they now pass through a 1 MB `BufferedOutputStream` fed by a 128 KB read buffer. A socket
+  read only returns what has arrived, so on a slow link the reads stay small — the write buffer is
+  what coalesces them into few large `write(2)` calls. On a 4 GB file this cuts write syscalls from
+  roughly 520,000 to a few thousand.
+- Gated progress reporting. Each `onProgress` tick used to cost a Room read, a Room write, a
+  WorkManager progress write and a notification rebuild, unconditionally. Reports are now emitted
+  only on a whole-percent gain, on a configurable byte delta, on the first tick, or on completion.
+- Made the progress cadence size-aware through new `DownloadConfig` fields
+  (`progressInterval*`, `minProgressBytes*`, `threshold*Bytes`). One fixed interval cannot suit both
+  a 20 MB file and a 4 GB one. All fields default to the previous behavior's ballpark, so existing
+  callers need no change.
+- Raised the checksum read buffer from 8 KB to 1 MB, so verifying a multi-GB download is no longer
+  bottlenecked on syscalls.
+
+### Added
+
+- `ProgressReportPolicy`, a pure object holding the progress cadence and report-gating rules, with
+  unit tests covering the threshold bands, the percent and byte-delta rules, completion, and the
+  unknown-`Content-Length` case where the percent rules can never fire.
+
 ## 1.1.11 - 2026-05-24
 
 ### Fixed

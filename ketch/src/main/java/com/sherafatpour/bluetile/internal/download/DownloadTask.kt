@@ -4,6 +4,7 @@ import com.sherafatpour.bluetile.internal.network.DownloadService
 import com.sherafatpour.bluetile.internal.utils.DownloadConst
 import com.sherafatpour.bluetile.internal.utils.FileUtil
 import kotlinx.coroutines.delay
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -18,12 +19,19 @@ internal class DownloadTask(
     companion object {
         private const val VALUE_200 = 200
         private const val VALUE_299 = 299
-        private const val TIME_TO_TRIGGER_PROGRESS = 1500
+        private const val TIME_TO_TRIGGER_PROGRESS = 1500L
+
+        // A socket read returns only what has arrived, so on a slow link these are small. The
+        // write buffer is the one that has to be large: it coalesces those small reads into few
+        // large write(2) calls, which is what keeps multi-GB downloads off the syscall path.
+        private const val READ_BUFFER_SIZE = 128 * 1024
+        private const val WRITE_BUFFER_SIZE = 1024 * 1024
     }
 
     suspend fun download(
         headers: MutableMap<String, String> = mutableMapOf(),
         speedLimitBytesPerSecond: Long = 0L,
+        progressIntervalMsProvider: (Long) -> Long = { TIME_TO_TRIGGER_PROGRESS },
         onStart: suspend (Long) -> Unit,
         onProgress: suspend (Long, Long, Float) -> Unit
     ): Long {
@@ -82,9 +90,10 @@ internal class DownloadTask(
         }
 
         val out = FileOutputStream(file, rangeStart != 0L)
+        val progressIntervalMs = progressIntervalMsProvider(totalBytes).coerceAtLeast(1L)
 
         responseBody.byteStream().use { inputStream ->
-            out.use { outputStream ->
+            BufferedOutputStream(out, WRITE_BUFFER_SIZE).use { outputStream ->
 
                 if (rangeStart != 0L) {
                     progressBytes = rangeStart
@@ -92,7 +101,7 @@ internal class DownloadTask(
 
                 onStart.invoke(totalBytes.coerceAtLeast(0L))
 
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                val buffer = ByteArray(READ_BUFFER_SIZE)
                 var bytes = inputStream.read(buffer)
                 var tempBytes = 0L
                 var progressInvokeTime = System.currentTimeMillis()
@@ -110,7 +119,7 @@ internal class DownloadTask(
                     )
                     bytes = inputStream.read(buffer)
                     val finalTime = System.currentTimeMillis()
-                    if (finalTime - progressInvokeTime >= TIME_TO_TRIGGER_PROGRESS) {
+                    if (finalTime - progressInvokeTime >= progressIntervalMs) {
 
                         speed = tempBytes.toFloat() / ((finalTime - progressInvokeTime).toFloat())
                         tempBytes = 0L
